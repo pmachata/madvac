@@ -1,0 +1,26 @@
+{
+  "name": "madvac",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pmachata/madvac.git"
+  },
+  "author": "Petr Machata",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/pmachata/madvac/issues"
+  },
+  "homepage": "https://github.com/pmachata/madvac#readme",
+  "devDependencies": {
+    "webpack": "^4.10.2",
+    "webpack-cli": "^3.0.1"
+  },
+  "dependencies": {
+    "vue": "^2.5.16"
+  }
+}

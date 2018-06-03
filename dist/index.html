@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
+  <meta charset="utf-8"/>
+  <head>
+    <title>MEH</title>
+  </head>
+  <style>
+    div.row {
+        display: table;
+        line-height: 0px;
+    }
+    div.field {
+        display: table-cell;
+        position: relative;
+        width: 40px;
+        height: 40px;
+        cursor: default;
+    }
+    div.field img {
+        width: 40px;
+        height: 40px;
+        margin: 0;
+        padding: 0;
+    }
+    div.field div {
+        position: absolute;
+        width: 100%;
+        margin: 0;
+        top: 50%;
+        text-align: center;
+        vertical-align: center;
+        display: inline-block;
+
+        font-face: sans-serif;
+        font-size: 100%;
+    }
+    div.field svg {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+    }
+
+    div.field svg.covered .light {
+        fill: #bfbcc0;
+    }
+    div.field svg.covered .dark {
+        fill: #837e86;
+    }
+    div.field svg.covered .medium {
+        fill: #a19da3;
+    }
+
+    div.field svg.open .light {
+        fill: #aba7ad;
+    }
+    div.field svg.open .border {
+        fill: none;
+        stroke: #d2d0d3;
+        stroke-width: 0.5;
+        stroke-dasharray: 2,2;
+    }
+
+    div.field svg.bomb circle {
+        stroke: none;
+        fill: black;
+    }
+
+    div.field svg.neighCount text {
+        font: bold 30px Verdana, Helvetica, Arial, sans-serif;
+        text-anchor: middle;
+        dominant-baseline: middle;
+    }
+
+    .board .row {
+    }
+    .board .cell {
+    }
+  </style>
+
+  <script type="text/x-template" id="appField">
+    <div class="field"
+         v-on:click="toggle"
+         v-on:contextmenu.prevent="flag">
+        <svg v-if="covered()"
+             class="covered"
+             viewBox="0 0 32 32">
+            <path d="M 0,0 H 32 L 0,32 Z" class="light" />
+            <path d="M 32,32 H 0 L 32,0 Z" class="dark" />
+            <rect y="2" x="2" height="28" width="28" class="medium" />
+        </svg>
+        <svg v-else
+             class="open"
+             viewBox="0 0 32 32">
+            <rect y="0" x="0" height="32" width="32" class="light" />
+            <rect y="0.25" x="0.25" height="31.5" width="31.5" class="border" />
+        </svg>
+
+        <svg v-if="!covered() && hasMine()"
+             class="bomb"
+             viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="6" />
+        </svg>
+        <svg v-else-if="!covered()"
+             class="neighCount">
+            <text x="50%" y="50%">{{neighbors() || ""}}</text>
+        </svg>
+
+        <svg v-if="covered() && flagged()"
+             viewBox="0 0 32 32">
+          <path style="stroke: black;
+                       stroke-width: 2"
+                d="M 7,25 V 7" />
+          <rect style="fill: red"
+                width="15"
+                height="10"
+                x="8"
+                y="7" />
+        </svg>
+    </div>
+  </script>
+
+  <script type="text/x-template" id="appBoard">
+    <div class="board">
+      <div class="row" v-for="row in game.fields">
+        <app-field class="cell"
+                   v-for="cell in row"
+                   v-bind:key="cell.id"
+                   v-bind:x="cell.x"
+                   v-bind:y="cell.y"></app-field>
+      </div>
+    </div>
+  </script>
+
+  <body>
+    <div id="app">
+      <app-board></app-board>
+    </div>
+  </body>
+
+  <script src="bundle.js"></script>
+</html>
