@@ -1,3 +1,5 @@
+"use strict";
+
 function randint(max) {
   return Math.floor(Math.random() * Math.floor(max));
 }
@@ -22,6 +24,9 @@ class Field {
             if (this.neighbors() == 0) {
                 this.uncoverNeighbors();
             }
+        }
+        if (this.hasMine) {
+            this.game.kaboom();
         }
     }
 
@@ -84,6 +89,7 @@ class Game {
         }
 
         this.started = false;
+        this.over = false;
         this.fields = createFields(this);
     }
 
@@ -97,6 +103,18 @@ class Game {
         return null;
     }
 
+    toggleField(x, y) {
+        if (!this.over) {
+            this.field(x, y).toggle();
+        }
+    }
+
+    flagField(x, y) {
+        if (!this.over) {
+            this.field(x, y).flag();
+        }
+    }
+
     start() {
         // xxx
         this.started = true;
@@ -105,6 +123,15 @@ class Game {
             var y = randint(10);
             this.field(x, y).hasMine = true;
         }
+    }
+
+    kaboom() {
+        for (var row of this.fields) {
+            for (var field of row) {
+                field.covered = false;
+            }
+        }
+        this.over = true;
     }
 };
 
@@ -119,14 +146,15 @@ Vue.component('app-field', {
         };
     },
     methods: {
-        field: function() {
-            return this.game.field(this.x, this.y);
-        },
         toggle: function() {
-            this.field().toggle();
+            this.game.toggleField(this.x, this.y);
         },
         flag: function() {
-            this.field().flag();
+            this.game.flagField(this.x, this.y);
+        },
+
+        field: function() {
+            return this.game.field(this.x, this.y);
         },
         covered: function() {
             return this.field().covered;
