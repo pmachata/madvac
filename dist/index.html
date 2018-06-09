@@ -104,7 +104,7 @@
         </svg>
         <svg v-else-if="!covered()"
              class="neighCount">
-            <text x="50%" y="50%">{{neighbors() || ""}}</text>
+            <text x="50%" y="50%">{{countNeighMines() || ""}}</text>
         </svg>
 
         <svg v-if="covered() && flagged()"

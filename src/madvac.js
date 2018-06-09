@@ -21,7 +21,7 @@ class Field {
         }
         if (!this.flagged && this.covered) {
             this.covered = false;
-            if (this.neighbors() == 0) {
+            if (this.countNeighMines() == 0) {
                 this.uncoverNeighbors();
             }
         }
@@ -48,17 +48,17 @@ class Field {
         return this.game.field(this.x + dx, this.y + dy);
     }
 
-    neighbors() {
-        var neighs = 0;
+    countNeighMines() {
+        var count = 0;
         for (var dx = -1; dx <= 1; ++dx) {
             for (var dy = -1; dy <= 1; ++dy) {
                 var neigh = this.neighbor(dx, dy);
                 if (neigh && neigh.hasMine) {
-                    ++neighs;
+                    ++count;
                 }
             }
         }
-        return neighs;
+        return count;
     }
 
     uncoverNeighbors() {
@@ -165,8 +165,8 @@ Vue.component('app-field', {
         flagged: function() {
             return this.field().flagged;
         },
-        neighbors: function() {
-            return this.field().neighbors();
+        countNeighMines: function() {
+            return this.field().countNeighMines();
         },
     },
 });
