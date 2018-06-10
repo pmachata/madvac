@@ -1,9 +1,12 @@
 const path = require('path');
 
 module.exports = {
-    entry: './src/madvac.js',
+    entry: {
+        madvac: './src/madvac.js',
+        'csp-tests': './src/csp-tests.js',
+    },
     output: {
-        filename: 'bundle.js',
+        filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'dist')
     },
     resolve: {
