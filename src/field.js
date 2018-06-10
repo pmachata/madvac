@@ -11,7 +11,7 @@ class Field {
 
     uncover() {
         if (!this.game.started) {
-            this.game.start();
+            this.game.start(this.x, this.y);
         }
         if (!this.flagged && this.covered) {
             this.covered = false;
