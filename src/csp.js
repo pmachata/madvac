@@ -5,23 +5,40 @@ class Cons {
     }
 
     subst(knowns) {
+        var substituted = false;
         for (var v of this.vs) {
-            if (knowns.hasOwnProperty(v)) {
+            if (knowns.has(v)) {
                 this.vs.delete(v);
-                this.sum -= knowns[v];
+                this.sum -= knowns.get(v);
+                substituted = true;
             }
         }
+        return substituted;
     }
 
     simplify(knowns) {
-        console.log(this.sum);
-        console.log(Object.keys(this.vs));
-        if (this.sum === this.vs.size) {
+        var simplified = false;
+        if (this.sum === this.vs.size || this.sum === 0) {
             for (var v of this.vs) {
-                knowns[v] = 1;
+                knowns.set(v, this.sum == 0 ? 0 : 1);
             }
             this.subst(knowns);
+            simplified = true;
         }
+        return simplified;
+    }
+
+    isTrivial() {
+        return this.vs.size == 0;
+    }
+
+    isSubOf(cons) {
+        for (var v of this.vs) {
+            if (!cons.vs.has(v)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     toString() {
@@ -40,7 +57,7 @@ class Cons {
 class CSP {
     constructor() {
         this.conses = [];
-        this.knowns = {};
+        this.knowns = new Map();
     }
 
     pushCons(cons) {
@@ -48,14 +65,43 @@ class CSP {
     }
 
     simplifyCons(cons) {
-        cons.subst(this.knowns);
-        cons.simplify(this.knowns);
+        var simplified = false;
+        if (cons.subst(this.knowns)) {
+            simplified = true;
+        }
+        if (cons.simplify(this.knowns)) {
+            simplified = true;
+        }
+        return simplified;
+    }
+
+    simplifyCons2(cons1, cons2) {
+        return false;
     }
 
     simplify() {
-        for (var cons of this.conses) {
-            if (this.simplifyCons(cons)) {
-                // xxx remove it
+        while (true) {
+            var simplified = false;
+            for (var i = 0; i < this.conses.length; ) {
+                var cons = this.conses[i];
+                if (this.simplifyCons(cons)) {
+                    simplified = true;
+                }
+                for (var j = i + 1; j < this.conses.length; ++j) {
+                    var consj = this.conses[j];
+                    if (this.simplifyCons2(cons, consj)
+                        || this.simplifyCons2(consj, cons)) {
+                        simplified = true;
+                    }
+                }
+                if (cons.isTrivial()) {
+                    this.conses.splice(i, 1);
+                } else {
+                    ++i;
+                }
+            }
+            if (!simplified) {
+                break;
             }
         }
     }
