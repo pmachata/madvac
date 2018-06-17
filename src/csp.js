@@ -2,6 +2,12 @@ class Cons {
     constructor(vs, sum) {
         this.vs = new Set(vs);
         this.sum = sum;
+
+        var key = "" + this.sum;
+        for (var v of this.vs) {
+            key += "," + v;
+        }
+        this.key = key;
     }
 
     subst(knowns) {
@@ -56,12 +62,12 @@ class Cons {
 
 class CSP {
     constructor() {
-        this.conses = [];
+        this.conses = new Map();
         this.knowns = new Map();
     }
 
     pushCons(cons) {
-        this.conses.push(cons);
+        this.conses.set(cons.key, cons);
     }
 
     simplifyCons(cons) {
@@ -82,22 +88,20 @@ class CSP {
     simplify() {
         while (true) {
             var simplified = false;
-            for (var i = 0; i < this.conses.length; ) {
-                var cons = this.conses[i];
+            for (var [_, cons] of this.conses) {
                 if (this.simplifyCons(cons)) {
                     simplified = true;
                 }
-                for (var j = i + 1; j < this.conses.length; ++j) {
-                    var consj = this.conses[j];
-                    if (this.simplifyCons2(cons, consj)
-                        || this.simplifyCons2(consj, cons)) {
-                        simplified = true;
+                for (var [_, cons2] of this.conses) {
+                    if (cons.key < cons2.key) {
+                        if (this.simplifyCons2(cons, cons2)
+                            || this.simplifyCons2(cons2, cons)) {
+                            simplified = true;
+                        }
                     }
                 }
                 if (cons.isTrivial()) {
-                    this.conses.splice(i, 1);
-                } else {
-                    ++i;
+                    this.conses.delete(cons.key);
                 }
             }
             if (!simplified) {
