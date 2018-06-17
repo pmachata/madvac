@@ -11,25 +11,27 @@ class Cons {
     }
 
     subst(knowns) {
-        var substituted = false;
+        var vs = [];
+        var sum = this.sum;
         for (var v of this.vs) {
-            if (knowns.has(v)) {
-                this.vs.delete(v);
-                this.sum -= knowns.get(v);
-                substituted = true;
+            if (!knowns.has(v)) {
+                vs.push(v);
+            } else {
+                sum -= knowns.get(v);
             }
         }
-        return substituted;
+        return new Cons(vs, sum);
     }
 
-    simplify(knowns) {
+    deduceKnowns(knowns) {
         var simplified = false;
         if (this.sum === this.vs.size || this.sum === 0) {
             for (var v of this.vs) {
-                knowns.set(v, this.sum == 0 ? 0 : 1);
+                if (!knowns.has(v)) {
+                    knowns.set(v, this.sum == 0 ? 0 : 1);
+                    simplified = true;
+                }
             }
-            this.subst(knowns);
-            simplified = true;
         }
         return simplified;
     }
@@ -38,13 +40,24 @@ class Cons {
         return this.vs.size == 0;
     }
 
-    isSubOf(cons) {
+    commonVs(cons) {
+        var vs = new Set();
         for (var v of this.vs) {
-            if (!cons.vs.has(v)) {
-                return false;
+            if (cons.vs.has(v)) {
+                vs.add(v);
             }
         }
-        return true;
+        return vs;
+    }
+
+    subtractVs(vs) {
+        var ret = [];
+        for (var v of this.vs) {
+            if (!vs.has(v)) {
+                ret.push(v);
+            }
+        }
+        return ret;
     }
 
     toString() {
@@ -67,44 +80,72 @@ class CSP {
     }
 
     pushCons(cons) {
-        this.conses.set(cons.key, cons);
+        if (this.conses.has(cons.key)) {
+            return false;
+        } else {
+            //console.log("push " + cons.toString());
+            this.conses.set(cons.key, cons);
+            return true;
+        }
     }
 
     simplifyCons(cons) {
         var simplified = false;
-        if (cons.subst(this.knowns)) {
+        if (this.pushCons(cons.subst(this.knowns))) {
             simplified = true;
         }
-        if (cons.simplify(this.knowns)) {
+        if (cons.deduceKnowns(this.knowns)) {
             simplified = true;
         }
         return simplified;
     }
 
-    simplifyCons2(cons1, cons2) {
-        return false;
+    deduceCoupled(cons1, cons2) {
+	// For two constraints of the following shape:
+	//  1) A0 + A1 + ... + Ak + B0 + B1 + ... + Bm = p + k
+	//  2) B0 + B1 + ... + Bm + C0 + C1 + ... + Cn = p
+	// Deduce that:
+	//  A0 = A1 = ... = Ak = 1
+	//  C0 = C1 = ... = Cn = 0
+        var nknowns = this.knowns.size;
+        var common = cons1.commonVs(cons2);
+        if (common.size > 0) {
+            var k = cons1.vs.size - common.size;
+            var p = cons2.sum;
+            if (cons1.sum === p + k) {
+                for (var v of cons1.subtractVs(common)) {
+                    this.knowns.set(v, 1);
+                }
+                for (var v of cons2.subtractVs(common)) {
+                    this.knowns.set(v, 0);
+                }
+            }
+        }
+        return nknowns > this.knowns.size;
     }
 
     simplify() {
         while (true) {
-            var simplified = false;
+            var progress = false;
             for (var [_, cons] of this.conses) {
+                //console.log("::" + cons.toString());
                 if (this.simplifyCons(cons)) {
-                    simplified = true;
+                    progress = true;
                 }
+                // xxx track newly-added conses to not waste time
+                // cross-simplifying those that were already done.
                 for (var [_, cons2] of this.conses) {
                     if (cons.key < cons2.key) {
-                        if (this.simplifyCons2(cons, cons2)
-                            || this.simplifyCons2(cons2, cons)) {
-                            simplified = true;
+                        //console.log("" + cons.toString() + " vs. " + cons2.toString());
+                        if (this.deduceCoupled(cons, cons2)
+                            || this.deduceCoupled(cons2, cons)) {
+                            progress = true;
                         }
                     }
                 }
-                if (cons.isTrivial()) {
-                    this.conses.delete(cons.key);
-                }
             }
-            if (!simplified) {
+            //console.log("---\n" + this.toString() + "\n====\n\n");
+            if (!progress) {
                 break;
             }
         }
@@ -112,11 +153,15 @@ class CSP {
 
     toString() {
         var ret = "";
-        for (var cons of this.conses) {
+        for (var [_, cons] of this.conses) {
             if (ret != "") {
                 ret += "\n";
             }
             ret += cons.toString();
+        }
+        ret += "\nknowns:";
+        for (var [known, value] of this.knowns) {
+            ret += " x" + known + "=" + value;
         }
         return ret;
     }
