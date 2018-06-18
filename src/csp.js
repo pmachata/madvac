@@ -10,54 +10,12 @@ class Cons {
         this.key = key;
     }
 
-    subst(knowns) {
-        var vs = [];
-        var sum = this.sum;
-        for (var v of this.vs) {
-            if (!knowns.has(v)) {
-                vs.push(v);
-            } else {
-                sum -= knowns.get(v);
-            }
-        }
-        return new Cons(vs, sum);
+    vsIntersect(vs) {
+        return new Set([...this.vs].filter(x => vs.has(x)));
     }
 
-    deduceKnowns(knowns) {
-        var simplified = false;
-        if (this.sum === this.vs.size || this.sum === 0) {
-            for (var v of this.vs) {
-                if (!knowns.has(v)) {
-                    knowns.set(v, this.sum == 0 ? 0 : 1);
-                    simplified = true;
-                }
-            }
-        }
-        return simplified;
-    }
-
-    isTrivial() {
-        return this.vs.size == 0;
-    }
-
-    commonVs(cons) {
-        var vs = new Set();
-        for (var v of this.vs) {
-            if (cons.vs.has(v)) {
-                vs.add(v);
-            }
-        }
-        return vs;
-    }
-
-    subtractVs(vs) {
-        var ret = [];
-        for (var v of this.vs) {
-            if (!vs.has(v)) {
-                ret.push(v);
-            }
-        }
-        return ret;
+    vsDiff(vs) {
+        return new Set([...this.vs].filter(x => !vs.has(x)));
     }
 
     toString() {
@@ -89,15 +47,39 @@ class CSP {
         }
     }
 
-    simplifyCons(cons) {
-        var simplified = false;
-        if (this.pushCons(cons.subst(this.knowns))) {
-            simplified = true;
+    vsDeduce(vs, value) {
+        for (var v of vs) {
+            this.knowns.set(v, value);
         }
-        if (cons.deduceKnowns(this.knowns)) {
-            simplified = true;
+    }
+
+    substKnowns(cons) {
+        var vs = [];
+        var sum = cons.sum;
+        for (var v of cons.vs) {
+            if (!this.knowns.has(v)) {
+                vs.push(v);
+            } else {
+                sum -= this.knowns.get(v);
+            }
         }
-        return simplified;
+        return this.pushCons(new Cons(vs, sum));
+    }
+
+    deduceSimple(cons) {
+        // For a constraint of one of the following shapes:
+        //  1) A0 + A1 + ... + An = n
+        //  2) A0 + A1 + ... + An = 0
+        // Deduce that:
+        //  in case 1) A0 = A1 = ... = An = 1
+        //  in case 2) A0 = A1 = ... = An = 0
+        var nknowns = this.knowns.size;
+        if (cons.sum === cons.vs.size) {
+            this.vsDeduce(cons.vs, 1);
+        } else if (cons.sum === 0) {
+            this.vsDeduce(cons.vs, 0);
+        }
+        return nknowns > this.knowns.size;
     }
 
     deduceCoupled(cons1, cons2) {
@@ -108,17 +90,13 @@ class CSP {
 	//  A0 = A1 = ... = Ak = 1
 	//  C0 = C1 = ... = Cn = 0
         var nknowns = this.knowns.size;
-        var common = cons1.commonVs(cons2);
+        var common = cons1.vsIntersect(cons2.vs);
         if (common.size > 0) {
             var k = cons1.vs.size - common.size;
             var p = cons2.sum;
             if (cons1.sum === p + k) {
-                for (var v of cons1.subtractVs(common)) {
-                    this.knowns.set(v, 1);
-                }
-                for (var v of cons2.subtractVs(common)) {
-                    this.knowns.set(v, 0);
-                }
+                this.vsDeduce(cons1.vsDiff(common), 1);
+                this.vsDeduce(cons2.vsDiff(common), 0);
             }
         }
         return nknowns > this.knowns.size;
@@ -129,7 +107,10 @@ class CSP {
             var progress = false;
             for (var [_, cons] of this.conses) {
                 //console.log("::" + cons.toString());
-                if (this.simplifyCons(cons)) {
+                if (this.substKnowns(cons)) {
+                    progress = true;
+                }
+                if (this.deduceSimple(cons)) {
                     progress = true;
                 }
                 // xxx track newly-added conses to not waste time
