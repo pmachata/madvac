@@ -86,4 +86,13 @@ assert.isNotOk(csp.knowns.has(5), "8: knowns.get(5)");
 assert.strictEqual(csp.knowns.get(6), 1, "8: knowns.get(6)");
 assert.strictEqual(csp.knowns.get(7), 1, "8: knowns.get(7)");
 
+var csp = new CSP();
+csp.pushCons(new Cons([1, 2, 3], 2));
+csp.pushCons(new Cons([2, 3, 4], 1));
+csp.pushCons(new Cons([1, 4, 5], 2));
+csp.simplify();
+assert.strictEqual(csp.knowns.get(1), 1, "9: knowns.get(1)");
+assert.strictEqual(csp.knowns.get(4), 0, "9: knowns.get(4)");
+assert.strictEqual(csp.knowns.get(5), 1, "9: knowns.get(5)");
+
 console.log("All OK!");
