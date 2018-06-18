@@ -1,38 +1,16 @@
 import { Field } from './field.js';
-import { CSP } from './csp.js';
-
-function randint(max) {
-  return Math.floor(Math.random() * Math.floor(max));
-}
+import { Board } from './board.js';
+import { genGame } from './gen.js';
 
 class Game {
     constructor() {
-        function createFields(game) {
-            var ret = [];
-            var i = 0;
-            for (var y = 0; y < 10; ++y) {
-                var row = [];
-                for (var x = 0; x < 10; ++x) {
-                    row.push(new Field(game, x, y, i++));
-                }
-                ret.push(row);
-            }
-            return ret;
-        }
-
         this.started = false;
         this.over = false;
-        this.fields = createFields(this);
+        this.board = new Board(10, 10, this);
     }
 
     field(x, y) {
-        if (y >= 0 && y < this.fields.length) {
-            var row = this.fields[y];
-            if (x >= 0 && x < row.length) {
-                return row[x];
-            }
-        }
-        return null;
+        return this.board.field(x, y);
     }
 
     toggleField(x, y) {
@@ -48,27 +26,36 @@ class Game {
     }
 
     start(x0, y0) {
-        // xxx
+        genGame(this.board, 10, x0, y0);
         this.started = true;
-        for (var i = 0; i < 10;) {
-            var x = randint(10);
-            var y = randint(10);
-            if ((x == x0 && y == y0)
-                || this.field(x, y).hasMine) {
-                continue;
-            }
-            ++i;
-            this.field(x, y).hasMine = true;
-        }
     }
 
     kaboom() {
-        for (var row of this.fields) {
+        for (var row of this.board.fields) {
             for (var field of row) {
                 field.covered = false;
             }
         }
         this.over = true;
+    }
+
+    fieldBeforeUncover(field) {
+        if (!this.started) {
+            this.start(field.x, field.y);
+        }
+        if (field.flagged) {
+            return false; // Prevent uncover.
+        }
+        return true;
+    }
+
+    fieldUncovered(field) {
+        if (field.countNeighMines() == 0) {
+            field.uncoverNeighbors();
+        }
+        if (!field.covered && field.hasMine) {
+            this.kaboom();
+        }
     }
 };
 

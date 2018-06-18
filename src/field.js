@@ -1,6 +1,6 @@
 class Field {
-    constructor(game, x, y, id) {
-        this.game = game;
+    constructor(board, x, y, id) {
+        this.board = board;
         this.covered = true;
         this.flagged = false;
         this.hasMine = false;
@@ -10,26 +10,18 @@ class Field {
     }
 
     uncover() {
-        if (!this.game.started) {
-            this.game.start(this.x, this.y);
-        }
-        if (!this.flagged && this.covered) {
+        if (this.covered && this.board.callFieldBeforeUncover(this)) {
             this.covered = false;
-            if (this.countNeighMines() == 0) {
-                this.uncoverNeighbors();
-            }
-        }
-        if (this.hasMine) {
-            this.game.kaboom();
+            this.board.callFieldUncovered(this);
         }
     }
 
     toggle() {
-            if (this.covered) {
-                this.uncover();
-            } else {
-                this.covered = true;
-            }
+        if (this.covered) {
+            this.uncover();
+        } else {
+            this.covered = true;
+        }
     }
 
     flag() {
@@ -39,7 +31,7 @@ class Field {
     }
 
     neighbor(dx, dy) {
-        return this.game.field(this.x + dx, this.y + dy);
+        return this.board.field(this.x + dx, this.y + dy);
     }
 
     countNeighMines() {

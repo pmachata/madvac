@@ -123,7 +123,7 @@
 
   <script type="text/x-template" id="appBoard">
     <div class="board">
-      <div class="row" v-for="row in game.fields">
+      <div class="row" v-for="row in game.board.fields">
         <app-field class="cell"
                    v-for="cell in row"
                    v-bind:key="cell.id"
