@@ -32,7 +32,8 @@ function boardFromDescription(descr) {
 }
 
 function assertPlayable(what, board, x0, y0) {
-    detPlay(board, x0, y0);
+    var playable = detPlay(board, x0, y0);
+    assert.isOk(playable);
     for (var field of board.allFields()) {
         if (field.hasMine) {
             assert.isOk(field.flagged,

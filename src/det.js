@@ -9,7 +9,7 @@ class DetGame {
         this.uncoverQueue = [];
 
         if (this.board.setFieldObserver(this) !== null) {
-            throw "DetGame expects a board without a observer";
+            throw "DetGame expects a board without an observer";
         }
         this.board.field(x0, y0).uncover();
     }
@@ -56,6 +56,8 @@ class DetGame {
 function detPlay(board, x0, y0) {
     var game = new DetGame(board, x0, y0);
     while (game.step()) {}
+    board.setFieldObserver(null);
+    return board.allFields().every(field => (!field.covered || field.hasMine));
 }
 
 export { detPlay };
