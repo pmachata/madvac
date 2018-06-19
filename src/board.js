@@ -29,15 +29,12 @@ class Board {
     }
 
     fieldById(id) {
-        // xxx this is just horrible
-        for (var row of this.fields) {
-            for (var field of row) {
-                if (field.id === id) {
-                    return field;
-                }
-            }
-        }
-        return null;
+        // xxx make this an O(1) operation
+        return this.allFields().find(field => field.id === id) || null;
+    }
+
+    allFields() {
+        return [].concat(...this.fields);
     }
 
     callFieldBeforeUncover(field) {

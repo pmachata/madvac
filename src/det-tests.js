@@ -33,15 +33,13 @@ function boardFromDescription(descr) {
 
 function assertPlayable(what, board, x0, y0) {
     detPlay(board, x0, y0);
-    for (var row of board.fields) {
-        for (var field of row) {
-            if (field.hasMine) {
-                assert.isOk(field.flagged,
-                            what + ": " + field.toString() + " flagged");
-            } else {
-                assert.isNotOk(field.covered,
-                            what + ": " + field.toString() + " !covered");
-            }
+    for (var field of board.allFields()) {
+        if (field.hasMine) {
+            assert.isOk(field.flagged,
+                        what + ": " + field.toString() + " flagged");
+        } else {
+            assert.isNotOk(field.covered,
+                           what + ": " + field.toString() + " !covered");
         }
     }
 }

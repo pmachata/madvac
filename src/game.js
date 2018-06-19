@@ -27,10 +27,8 @@ class Game {
     }
 
     kaboom() {
-        for (var row of this.board.fields) {
-            for (var field of row) {
-                field.covered = false;
-            }
+        for (var field of this.board.allFields()) {
+            field.covered = false;
         }
         this.over = true;
     }
