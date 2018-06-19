@@ -4,5 +4,10 @@ all:
 prod:
 	npx webpack --mode production
 
-test: all
+test-csp: all
 	d8 dist/csp-tests.bundle.js
+
+test-det: all
+	d8 dist/det-tests.bundle.js
+
+test: test-csp test-det

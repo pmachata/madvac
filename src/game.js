@@ -6,7 +6,8 @@ class Game {
     constructor() {
         this.started = false;
         this.over = false;
-        this.board = new Board(10, 10, this);
+        this.board = new Board(10, 10);
+        this.board.setFieldObserver(this);
     }
 
     field(x, y) {
@@ -25,11 +26,6 @@ class Game {
         }
     }
 
-    start(x0, y0) {
-        genGame(this.board, 10, x0, y0);
-        this.started = true;
-    }
-
     kaboom() {
         for (var row of this.board.fields) {
             for (var field of row) {
@@ -41,7 +37,8 @@ class Game {
 
     fieldBeforeUncover(field) {
         if (!this.started) {
-            this.start(field.x, field.y);
+            genGame(this.board, 10, field.x, field.y);
+            this.started = true;
         }
         if (field.flagged) {
             return false; // Prevent uncover.

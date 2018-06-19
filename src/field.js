@@ -34,28 +34,31 @@ class Field {
         return this.board.field(this.x + dx, this.y + dy);
     }
 
-    countNeighMines() {
-        var count = 0;
+    neighbors() {
+        var ret = [];
         for (var dx = -1; dx <= 1; ++dx) {
             for (var dy = -1; dy <= 1; ++dy) {
-                var neigh = this.neighbor(dx, dy);
-                if (neigh && neigh.hasMine) {
-                    ++count;
+                var field = this.neighbor(dx, dy);
+                if (field) {
+                    ret.push(field);
                 }
             }
         }
-        return count;
+        return ret;
+    }
+
+    countNeighMines() {
+        return this.neighbors().filter(field => field.hasMine).length;
     }
 
     uncoverNeighbors() {
-        for (var dx = -1; dx <= 1; ++dx) {
-            for (var dy = -1; dy <= 1; ++dy) {
-                var neigh = this.neighbor(dx, dy);
-                if (neigh) {
-                    neigh.uncover();
-                }
-            }
+        for (var field of this.neighbors()) {
+            field.uncover();
         }
+    }
+
+    toString() {
+        return "{x:" + this.x + ", y:" + this.y + ", f" + this.id + "}";
     }
 };
 

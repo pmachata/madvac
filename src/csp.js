@@ -103,6 +103,7 @@ class CSP {
     }
 
     simplify() {
+        var oldKnowns = new Map(this.knowns);
         while (true) {
             var progress = false;
             for (var [_, cons] of this.conses) {
@@ -130,6 +131,8 @@ class CSP {
                 break;
             }
         }
+        return new Map([...this.knowns.entries()]
+                            .filter(entry => !oldKnowns.has(entry[0])))
     }
 
     toString() {

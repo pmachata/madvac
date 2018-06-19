@@ -95,4 +95,4 @@ assert.strictEqual(csp.knowns.get(1), 1, "9: knowns.get(1)");
 assert.strictEqual(csp.knowns.get(4), 0, "9: knowns.get(4)");
 assert.strictEqual(csp.knowns.get(5), 1, "9: knowns.get(5)");
 
-console.log("All OK!");
+console.log("CSP OK!");

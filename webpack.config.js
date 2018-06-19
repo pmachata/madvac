@@ -4,6 +4,7 @@ module.exports = {
     entry: {
         madvac: './src/madvac.js',
         'csp-tests': './src/csp-tests.js',
+        'det-tests': './src/det-tests.js',
     },
     output: {
         filename: '[name].bundle.js',
