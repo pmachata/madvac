@@ -34,6 +34,7 @@ class Cons {
 class CSP {
     constructor() {
         this.conses = new Map();
+        this.newConses = [];
         this.knowns = new Map();
     }
 
@@ -43,6 +44,7 @@ class CSP {
         } else {
             //console.log("push " + cons.toString());
             this.conses.set(cons.key, cons);
+            this.newConses.push(cons);
             return true;
         }
     }
@@ -106,7 +108,7 @@ class CSP {
         var oldKnowns = new Map(this.knowns);
         while (true) {
             var progress = false;
-            for (var [_, cons] of this.conses) {
+            for (var cons of this.newConses) {
                 //console.log("::" + cons.toString());
                 if (this.substKnowns(cons)) {
                     progress = true;
@@ -114,8 +116,6 @@ class CSP {
                 if (this.deduceSimple(cons)) {
                     progress = true;
                 }
-                // xxx track newly-added conses to not waste time
-                // cross-simplifying those that were already done.
                 for (var [_, cons2] of this.conses) {
                     if (cons.key < cons2.key) {
                         //console.log("" + cons.toString() + " vs. " + cons2.toString());
@@ -130,6 +130,7 @@ class CSP {
             if (!progress) {
                 break;
             }
+            this.newConses = [];
         }
         return new Map([...this.knowns.entries()]
                             .filter(entry => !oldKnowns.has(entry[0])))
