@@ -1,4 +1,5 @@
-import { BitSet128 } from './set128.js';
+import { assert } from 'chai';
+import { BitSet128, bit_set } from './set128.js';
 
 function check(condition, message) {
     if (!condition) {
@@ -6,9 +7,55 @@ function check(condition, message) {
     }
 }
 
+class Logger {
+    log(err, j, k) {
+        if (err) {
+            console.log("ERR " + i + "; j=" + j + "; k=" + k);
+        } else {
+            console.log("j=" + j + "; k=" + k);
+        }
+    }
+};
+
+var heap = new ArrayBuffer(0x10000);
+var BitSet = bit_set(global, {log: new Logger().log}, heap);
+
+var vs = 0x100;
+BitSet.init(vs);
+assert.strictEqual(BitSet.select(0x00), 0x001, "select 0x0");
+assert.strictEqual(BitSet.select(0x04), 0x010, "select 0x4");
+assert.strictEqual(BitSet.select(0x08), 0x101, "select 0x8");
+assert.strictEqual(BitSet.select(0x0c), 0x110, "select 0xc");
+assert.strictEqual(BitSet.select(0x10), 0x201, "select 0x10");
+assert.strictEqual(BitSet.select(0x14), 0x210, "select 0x10");
+
+for (let i = 0; i < 128; ++i) {
+    assert.isNotOk(BitSet.has(vs, i), "hasKey " + i);
+}
+
+var keys = [2, 4, 50, 8, 9, 10, 15, 20, 40, 100];
+for (let i = 0; i < keys.length; ++i) {
+    var key = keys[i];
+    // xxx check size == i
+    BitSet.add(vs, key);
+    assert.isOk(BitSet.has(vs, key), "hasKey " + key + " after addition");
+}
+
+var vs2 = 0x200;
+BitSet.copy(vs2, vs);
+
+for (let i = 0; i < keys.length; ++i) {
+    var key = keys[i];
+    BitSet.remove(vs, key);
+    assert.isNotOk(BitSet.has(vs, key), "!hasKey " + key + " after removal");
+    // xxx check size == i
+    assert.isOk(BitSet.has(vs2, key), "vs2.hasKey " + key + " after removal in vs");
+}
+
+// -----------------------------------------------
+
 var vs = new BitSet128();
 var keys = [2, 4, 50, 8, 9, 10, 15, 20, 40, 100];
-
 for (let i = 0; i < keys.length; ++i) {
     var key = keys[i];
 
