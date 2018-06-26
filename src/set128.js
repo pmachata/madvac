@@ -1,7 +1,7 @@
 function bit_set(stdlib, foreign, heap) {
     "use asm";
 
-    var MEM8 = new stdlib.Int8Array(heap);
+    var MEM8 = new stdlib.Uint8Array(heap);
     var log = foreign.log;
     var imul = stdlib.Math.imul;
 
@@ -39,6 +39,7 @@ function bit_set(stdlib, foreign, heap) {
         return ret|0;
     }
 
+    // Initialize an empty bset.
     function init(bset) {
         bset = bset|0;
         var off = 0;
@@ -51,6 +52,7 @@ function bit_set(stdlib, foreign, heap) {
         }
     }
 
+    // Initialize a bset by copy from other bset.
     function copy(bset, other) {
         bset = bset|0;
         other = other|0;
@@ -67,6 +69,7 @@ function bit_set(stdlib, foreign, heap) {
         }
     }
 
+    // Return 1 if bset contains an element with a given key, 0 otherwise.
     function has(bset, key) {
         bset = bset|0;
         key = key|0;
@@ -84,6 +87,7 @@ function bit_set(stdlib, foreign, heap) {
         return ret|0;
     }
 
+    // Add an element with a given key to bset.
     function add(bset, key) {
         bset = bset|0;
         key = key|0;
@@ -99,6 +103,7 @@ function bit_set(stdlib, foreign, heap) {
         MEM8[off] = MEM8[off] | mask;
     }
 
+    // Remove an element with a given key from bset.
     function remove(bset, key) {
         bset = bset|0;
         key = key|0;
@@ -119,6 +124,192 @@ function bit_set(stdlib, foreign, heap) {
         return 0;
     }
 
+    // Return 1 iff bset contains all elements of other.
+    function hasAll(bset, other) {
+        bset = bset|0;
+        other = other|0;
+        var off1 = 0;
+        var off2 = 0;
+        var i = 0;
+        var v1 = 0;
+        var v2 = 0;
+
+        off1 = bufOff(bset, 0)|0;
+        off2 = bufOff(other, 0)|0;
+
+        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+            v1 = MEM8[off1]|0;
+            v2 = MEM8[off2]|0;
+
+            if ((~v1 & v2)|0) {
+                return 0;
+            }
+
+            off1 = (off1 + 1)|0;
+            off2 = (off2 + 1)|0;
+        }
+
+        return 1;
+    }
+
+    // Return 1 iff bset contains at least one element of other.
+    function hasAny(bset, other) {
+        bset = bset|0;
+        other = other|0;
+        var off1 = 0;
+        var off2 = 0;
+        var i = 0;
+        var v1 = 0;
+        var v2 = 0;
+
+        off1 = bufOff(bset, 0)|0;
+        off2 = bufOff(other, 0)|0;
+
+        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+            v1 = MEM8[off1]|0;
+            v2 = MEM8[off2]|0;
+
+            if ((v1 & v2)|0) {
+                return 1;
+            }
+
+            off1 = (off1 + 1)|0;
+            off2 = (off2 + 1)|0;
+        }
+
+        return 0;
+    }
+
+    // Add all elements in other set to bset.
+    function addAll(bset, other) {
+        bset = bset|0;
+        other = other|0;
+        var off1 = 0;
+        var off2 = 0;
+        var i = 0;
+        var v1 = 0;
+        var v2 = 0;
+
+        off1 = bufOff(bset, 0)|0;
+        off2 = bufOff(other, 0)|0;
+
+        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+            v1 = MEM8[off1]|0;
+            v2 = MEM8[off2]|0;
+
+            MEM8[off1] = v1 | v2;
+
+            off1 = (off1 + 1)|0;
+            off2 = (off2 + 1)|0;
+        }
+    }
+
+    // Remove all elements in other set from bset.
+    function removeAll(bset, other) {
+        bset = bset|0;
+        other = other|0;
+        var off1 = 0;
+        var off2 = 0;
+        var i = 0;
+        var v1 = 0;
+        var v2 = 0;
+
+        off1 = bufOff(bset, 0)|0;
+        off2 = bufOff(other, 0)|0;
+
+        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+            v1 = MEM8[off1]|0;
+            v2 = MEM8[off2]|0;
+
+            MEM8[off1] = v1 & ~v2;
+
+            off1 = (off1 + 1)|0;
+            off2 = (off2 + 1)|0;
+        }
+    }
+
+    // Drop from bset all elements except those in other set.
+    function retainAll(bset, other) {
+        bset = bset|0;
+        other = other|0;
+        var off1 = 0;
+        var off2 = 0;
+        var i = 0;
+        var v1 = 0;
+        var v2 = 0;
+
+        off1 = bufOff(bset, 0)|0;
+        off2 = bufOff(other, 0)|0;
+
+        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+            v1 = MEM8[off1]|0;
+            v2 = MEM8[off2]|0;
+
+            MEM8[off1] = v1 & v2;
+
+            off1 = (off1 + 1)|0;
+            off2 = (off2 + 1)|0;
+        }
+    }
+
+    // Return 1 iff bset and other hold the same elements.
+    function equals(bset, other) {
+        bset = bset|0;
+        other = other|0;
+        var off1 = 0;
+        var off2 = 0;
+        var i = 0;
+        var v1 = 0;
+        var v2 = 0;
+
+        off1 = bufOff(bset, 0)|0;
+        off2 = bufOff(other, 0)|0;
+
+        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+            v1 = MEM8[off1]|0;
+            v2 = MEM8[off2]|0;
+
+            if (((v1|0) != (v2|0))|0) {
+                return 0;
+            }
+
+            off1 = (off1 + 1)|0;
+            off2 = (off2 + 1)|0;
+        }
+
+        return 1;
+    }
+
+    function countBits(v) {
+        v = v|0;
+        var c = 0;
+
+	// http://www-graphics.stanford.edu/~seander/bithacks.html#CountBitsSetKernighan
+	for (c = 0; (v|0) != 0; c = (c + 1)|0) {
+	    v = v & ((v - 1)|0);
+        }
+	return c|0;
+    }
+
+    // Return number of elements in the set.
+    function size(bset) {
+        bset = bset|0;
+        var size = 0;
+        var off = 0;
+        var i = 0;
+        var v = 0;
+
+        off = bufOff(bset, 0)|0;
+
+        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+            v = MEM8[off]|0;
+            size = (size + (countBits(v)|0))|0;
+            off = (off + 1)|0;
+        }
+
+        return size|0;
+    }
+
     return {
         init: init,
         copy: copy,
@@ -126,6 +317,13 @@ function bit_set(stdlib, foreign, heap) {
         has: has,
         add: add,
         remove: remove,
+        hasAll: hasAll,
+        hasAny: hasAny,
+        addAll: addAll,
+        removeAll: removeAll,
+        retainAll: retainAll,
+        equals: equals,
+        size: size,
     };
 };
 
