@@ -10,6 +10,9 @@ test-csp: all
 test-det: all
 	d8 dist/det-tests.bundle.js
 
+test-set128-asm: all
+	d8 dist/set128-asm-tests.bundle.js
+
 test-set128: all
 	d8 dist/set128-tests.bundle.js
 
