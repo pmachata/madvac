@@ -1,4 +1,4 @@
-function BitSet128AsmMod(stdlib, foreign, heap) {
+function AsmMod(stdlib, foreign, heap) {
     "use asm";
 
     const MEM8 = new stdlib.Uint8Array(heap);
@@ -7,17 +7,17 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
 
     const ERR_KEY = 1;
 
-    // struct {
+    // struct bs {
     //   u8 buf[bufSize];
     // };
     const bufSize = 16;
 
-    function sizeOf() {
+    function bs_sizeOf() {
         return bufSize;
     }
 
     // For a given displacement, returns address in MEM8 of bset's dpl'th key.
-    function bufAddr(bset, dpl) {
+    function bs_bufAddr(bset, dpl) {
         bset = bset|0;
         dpl = dpl|0;
         var ret = 0;
@@ -27,7 +27,7 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
 
     // For a given set key, returns at which displacement in the buffer the key
     // is located and the corresponding mask. Returns (dpl << 8) | mask.
-    function select(key) {
+    function bs_select(key) {
         key = key|0;
         var i = 0;
         var ret = 0;
@@ -44,12 +44,12 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Initialize an empty bset.
-    function init(bset) {
+    function bs_init(bset) {
         bset = bset|0;
         var addr = 0;
         var i = 0;
 
-        addr = bufAddr(bset, 0)|0;
+        addr = bs_bufAddr(bset, 0)|0;
         for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
             MEM8[addr] = 0;
             addr = (addr + 1)|0;
@@ -57,15 +57,15 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Initialize a bset by copy from other bset.
-    function copy(bset, other) {
+    function bs_copy(bset, other) {
         bset = bset|0;
         other = other|0;
         var addr1 = 0;
         var addr2 = 0;
         var i = 0;
 
-        addr1 = bufAddr(bset, 0)|0;
-        addr2 = bufAddr(other, 0)|0;
+        addr1 = bs_bufAddr(bset, 0)|0;
+        addr2 = bs_bufAddr(other, 0)|0;
         for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
             MEM8[addr1] = MEM8[addr2];
             addr1 = (addr1 + 1)|0;
@@ -74,7 +74,7 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Return 1 if bset contains an element with a given key, 0 otherwise.
-    function has(bset, key) {
+    function bs_has(bset, key) {
         bset = bset|0;
         key = key|0;
         var dpl = 0;
@@ -82,43 +82,43 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
         var addr = 0;
         var ret = 0;
 
-        dpl = select(key)|0;
+        dpl = bs_select(key)|0;
         mask = ((dpl|0) & 0xff)|0;
         dpl = ((dpl|0) >> 8)|0;
-        addr = bufAddr(bset, dpl)|0;
+        addr = bs_bufAddr(bset, dpl)|0;
 
         ret = (MEM8[addr] & mask)|0;
         return ret|0;
     }
 
     // Add an element with a given key to bset.
-    function add(bset, key) {
+    function bs_add(bset, key) {
         bset = bset|0;
         key = key|0;
         var dpl = 0;
         var mask = 0;
         var addr = 0;
 
-        dpl = select(key)|0;
+        dpl = bs_select(key)|0;
         mask = ((dpl|0) & 0xff)|0;
         dpl = ((dpl|0) >> 8)|0;
-        addr = bufAddr(bset, dpl)|0;
+        addr = bs_bufAddr(bset, dpl)|0;
 
         MEM8[addr] = MEM8[addr] | mask;
     }
 
     // Remove an element with a given key from bset.
-    function remove(bset, key) {
+    function bs_remove(bset, key) {
         bset = bset|0;
         key = key|0;
         var dpl = 0;
         var mask = 0;
         var addr = 0;
 
-        dpl = select(key)|0;
+        dpl = bs_select(key)|0;
         mask = ((dpl|0) & 0xff)|0;
         dpl = ((dpl|0) >> 8)|0;
-        addr = bufAddr(bset, dpl)|0;
+        addr = bs_bufAddr(bset, dpl)|0;
 
         if ((MEM8[addr] & mask)|0) {
             MEM8[addr] = MEM8[addr] & ~mask;
@@ -129,7 +129,7 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Return 1 iff bset contains all elements of other.
-    function hasAll(bset, other) {
+    function bs_hasAll(bset, other) {
         bset = bset|0;
         other = other|0;
         var addr1 = 0;
@@ -138,8 +138,8 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bufAddr(bset, 0)|0;
-        addr2 = bufAddr(other, 0)|0;
+        addr1 = bs_bufAddr(bset, 0)|0;
+        addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
@@ -157,7 +157,7 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Return 1 iff bset contains at least one element of other.
-    function hasAny(bset, other) {
+    function bs_hasAny(bset, other) {
         bset = bset|0;
         other = other|0;
         var addr1 = 0;
@@ -166,8 +166,8 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bufAddr(bset, 0)|0;
-        addr2 = bufAddr(other, 0)|0;
+        addr1 = bs_bufAddr(bset, 0)|0;
+        addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
@@ -185,7 +185,7 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Add all elements in other set to bset.
-    function addAll(bset, other) {
+    function bs_addAll(bset, other) {
         bset = bset|0;
         other = other|0;
         var addr1 = 0;
@@ -194,8 +194,8 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bufAddr(bset, 0)|0;
-        addr2 = bufAddr(other, 0)|0;
+        addr1 = bs_bufAddr(bset, 0)|0;
+        addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
@@ -209,7 +209,7 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Remove all elements in other set from bset.
-    function removeAll(bset, other) {
+    function bs_removeAll(bset, other) {
         bset = bset|0;
         other = other|0;
         var addr1 = 0;
@@ -218,8 +218,8 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bufAddr(bset, 0)|0;
-        addr2 = bufAddr(other, 0)|0;
+        addr1 = bs_bufAddr(bset, 0)|0;
+        addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
@@ -233,7 +233,7 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Drop from bset all elements except those in other set.
-    function retainAll(bset, other) {
+    function bs_retainAll(bset, other) {
         bset = bset|0;
         other = other|0;
         var addr1 = 0;
@@ -242,8 +242,8 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bufAddr(bset, 0)|0;
-        addr2 = bufAddr(other, 0)|0;
+        addr1 = bs_bufAddr(bset, 0)|0;
+        addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
@@ -257,7 +257,7 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Return 1 iff bset and other hold the same elements.
-    function equals(bset, other) {
+    function bs_equals(bset, other) {
         bset = bset|0;
         other = other|0;
         var addr1 = 0;
@@ -266,8 +266,8 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bufAddr(bset, 0)|0;
-        addr2 = bufAddr(other, 0)|0;
+        addr1 = bs_bufAddr(bset, 0)|0;
+        addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
@@ -296,14 +296,14 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     // Return number of elements in the set.
-    function size(bset) {
+    function bs_size(bset) {
         bset = bset|0;
         var size = 0;
         var addr = 0;
         var i = 0;
         var v = 0;
 
-        addr = bufAddr(bset, 0)|0;
+        addr = bs_bufAddr(bset, 0)|0;
 
         for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
             v = MEM8[addr]|0;
@@ -315,21 +315,21 @@ function BitSet128AsmMod(stdlib, foreign, heap) {
     }
 
     return {
-        init: init,
-        copy: copy,
-        select: select,
-        has: has,
-        add: add,
-        remove: remove,
-        hasAll: hasAll,
-        hasAny: hasAny,
-        addAll: addAll,
-        removeAll: removeAll,
-        retainAll: retainAll,
-        equals: equals,
-        size: size,
-        sizeOf: sizeOf,
+        bs_init: bs_init,
+        bs_copy: bs_copy,
+        bs_select: bs_select,
+        bs_has: bs_has,
+        bs_add: bs_add,
+        bs_remove: bs_remove,
+        bs_hasAll: bs_hasAll,
+        bs_hasAny: bs_hasAny,
+        bs_addAll: bs_addAll,
+        bs_removeAll: bs_removeAll,
+        bs_retainAll: bs_retainAll,
+        bs_equals: bs_equals,
+        bs_size: bs_size,
+        bs_sizeOf: bs_sizeOf,
     };
 };
 
-export { BitSet128AsmMod };
+export { AsmMod };
