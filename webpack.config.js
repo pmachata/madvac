@@ -7,6 +7,7 @@ module.exports = {
         'det-tests': './src/det-tests.js',
         'set128-asm-tests': './src/set128-asm-tests.js',
         'set128-tests': './src/set128-tests.js',
+        'cons-asm-tests': './src/cons-asm-tests.js',
     },
     output: {
         filename: '[name].bundle.js',

@@ -7,9 +7,13 @@ function AsmMod(stdlib, foreign, heap) {
 
     const ERR_KEY = 1;
 
-    // struct bs {
-    //   u8 buf[bufSize];
-    // };
+    /**************************************************************************
+     * BitSet -- a set for up to 128 boolean elements.
+     *
+     * struct bs {
+     *   u8 buf[bufSize];
+     * };
+     **************************************************************************/
     const bufSize = 16;
 
     function bs_sizeOf() {
@@ -314,6 +318,58 @@ function AsmMod(stdlib, foreign, heap) {
         return size|0;
     }
 
+    /**************************************************************************
+     * Cons -- a constraint in a CSP problem
+     * A constraint is an equation x0 + x1 + ... + xn = sum.
+     *
+     * struct {
+     *   BitSet128 vs;    -- set of variables on LHS
+     *   u8 sum;
+     *   u8 _padding[3];
+     * };
+     *
+     * Since Cons is just a bit set and sum, manipulation of "vs" is done
+     * directly through BitSet operations.
+     **************************************************************************/
+
+    // Returns address in MEM8 of cons's sum.
+    function c_sumAddr(cons) {
+        cons = cons|0;
+        var ret = 0;
+        ret = (cons + (bs_sizeOf()|0))|0;
+        return ret|0;
+    }
+
+    function c_init(cons, sum) {
+        cons = cons|0;
+        sum = sum|0;
+
+        bs_init(cons);
+        c_initSumOnly(cons, sum);
+    }
+
+    // Partially initialize a Cons structure--initialize just sum, assuming
+    // "cons" refers to a BitSet object that has already been initialized.
+    function c_initSumOnly(cons, sum) {
+        cons = cons|0;
+        sum = sum|0;
+        var sumAddr = 0;
+
+        sumAddr = c_sumAddr(cons)|0;
+        MEM8[sumAddr|0] = sum;
+    }
+
+    function c_sum(cons) {
+        cons = cons|0;
+        var sumAddr = 0;
+        var ret = 0;
+
+        sumAddr = c_sumAddr(cons)|0;
+        ret = MEM8[sumAddr|0]|0;
+
+        return ret|0;
+    }
+
     return {
         bs_init: bs_init,
         bs_copy: bs_copy,
@@ -329,6 +385,10 @@ function AsmMod(stdlib, foreign, heap) {
         bs_equals: bs_equals,
         bs_size: bs_size,
         bs_sizeOf: bs_sizeOf,
+
+        c_init: c_init,
+        c_initSumOnly: c_initSumOnly,
+        c_sum: c_sum,
     };
 };
 
