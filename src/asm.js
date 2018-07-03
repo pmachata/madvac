@@ -2,22 +2,38 @@ function AsmMod(stdlib, foreign, heap) {
     "use asm";
 
     const MEM8 = new stdlib.Uint8Array(heap);
+    const MEM32 = new stdlib.Uint32Array(heap);
     const log = foreign.log;
     const imul = stdlib.Math.imul;
 
     const ERR_KEY = 1;
 
+    // 16 bytes for 128 bit values.
+    const bs_bufSize = 16;
+
+    // To solve 128-element problems, the system will hold at least 128
+    // constraints. Other constrains are derived from those by variable
+    // substitution. If the constraints were independent, each could beget
+    // constraints for all subsets of its variable set. But they aren't, and so
+    // a) since the variables are deduced in the same order globally, it's
+    // impossible to exhaust all subsets of each constraint. And b) many of the
+    // subsets end up already having been used up by other constraints. So in
+    // practice this recombination tends to give about a half extra constraints
+    // (i.e. 150-ish for a 100-variable game). Give a much larger margin of 8x
+    // to allow for broader neighborhoods, a number-of-mines equation, and to
+    // cover for potential pathological cases.
+    const csp_cap = 1024;
+
     /**************************************************************************
      * BitSet -- a set for up to 128 boolean elements.
      *
      * struct bs {
-     *   u8 buf[bufSize];
+     *   u8 buf[bs_bufSize];
      * };
      **************************************************************************/
-    const bufSize = 16;
 
     function bs_sizeOf() {
-        return bufSize;
+        return bs_bufSize;
     }
 
     // For a given displacement, returns address in MEM8 of bset's dpl'th key.
@@ -37,11 +53,12 @@ function AsmMod(stdlib, foreign, heap) {
         var ret = 0;
 
         i = ((key|0) / 8)|0;
-        if (((i|0) < 0)|0 + ((i|0) >= (bufSize|0))|0) {
+        if (((i|0) < 0)|0 + ((i|0) >= (bs_bufSize|0))|0) {
             log(ERR_KEY|0, i|0, 0);
             i = 0;
         }
 
+        // xxx make it i = i << 3?
         key = ((key|0) - imul(i|0, 8))|0;
         ret = ((i|0) << 8) | (1 << (key|0));
         return ret|0;
@@ -54,7 +71,7 @@ function AsmMod(stdlib, foreign, heap) {
         var i = 0;
 
         addr = bs_bufAddr(bset, 0)|0;
-        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             MEM8[addr] = 0;
             addr = (addr + 1)|0;
         }
@@ -70,7 +87,7 @@ function AsmMod(stdlib, foreign, heap) {
 
         addr1 = bs_bufAddr(bset, 0)|0;
         addr2 = bs_bufAddr(other, 0)|0;
-        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             MEM8[addr1] = MEM8[addr2];
             addr1 = (addr1 + 1)|0;
             addr2 = (addr2 + 1)|0;
@@ -145,7 +162,7 @@ function AsmMod(stdlib, foreign, heap) {
         addr1 = bs_bufAddr(bset, 0)|0;
         addr2 = bs_bufAddr(other, 0)|0;
 
-        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
             v2 = MEM8[addr2]|0;
 
@@ -173,7 +190,7 @@ function AsmMod(stdlib, foreign, heap) {
         addr1 = bs_bufAddr(bset, 0)|0;
         addr2 = bs_bufAddr(other, 0)|0;
 
-        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
             v2 = MEM8[addr2]|0;
 
@@ -201,7 +218,7 @@ function AsmMod(stdlib, foreign, heap) {
         addr1 = bs_bufAddr(bset, 0)|0;
         addr2 = bs_bufAddr(other, 0)|0;
 
-        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
             v2 = MEM8[addr2]|0;
 
@@ -225,7 +242,7 @@ function AsmMod(stdlib, foreign, heap) {
         addr1 = bs_bufAddr(bset, 0)|0;
         addr2 = bs_bufAddr(other, 0)|0;
 
-        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
             v2 = MEM8[addr2]|0;
 
@@ -249,7 +266,7 @@ function AsmMod(stdlib, foreign, heap) {
         addr1 = bs_bufAddr(bset, 0)|0;
         addr2 = bs_bufAddr(other, 0)|0;
 
-        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
             v2 = MEM8[addr2]|0;
 
@@ -273,7 +290,7 @@ function AsmMod(stdlib, foreign, heap) {
         addr1 = bs_bufAddr(bset, 0)|0;
         addr2 = bs_bufAddr(other, 0)|0;
 
-        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM8[addr1]|0;
             v2 = MEM8[addr2]|0;
 
@@ -309,7 +326,7 @@ function AsmMod(stdlib, foreign, heap) {
 
         addr = bs_bufAddr(bset, 0)|0;
 
-        for (; (i|0) < (bufSize|0); i = (i + 1)|0) {
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v = MEM8[addr]|0;
             size = (size + (countBits(v)|0))|0;
             addr = (addr + 1)|0;
@@ -331,6 +348,12 @@ function AsmMod(stdlib, foreign, heap) {
      * Since Cons is just a bit set and sum, manipulation of "vs" is done
      * directly through BitSet operations.
      **************************************************************************/
+
+    function c_sizeOf() {
+        var ret = 0;
+        ret = ((bs_sizeOf()|0) + 4)|0;
+        return ret|0;
+    }
 
     // Returns address in MEM8 of cons's sum.
     function c_sumAddr(cons) {
@@ -370,6 +393,162 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
+    /**************************************************************************
+     * CSP -- a constraint-satisfaction problem
+     * A CSP is a set of constraints, each a Cons.
+     *
+     * struct {
+     *   BitSet isKnown;   -- set of knowns (isKnown.has(x) iff x is known)
+     *   BitSet knownVal;  -- values of knowns (isKnown.has(x) iff x is 1)
+     *   Cons conses[cap]; -- conses in order of addition
+     *   int order[cap];   -- pointers to conses ordered by Cons.vs
+     *   int nconsOld;     -- number of old conses
+     *   int ncons;        -- total number of conses
+     * };
+     *
+     * Since Cons is just a bit set and sum, manipulation of "vs" is done
+     * directly through BitSet operations.
+     **************************************************************************/
+
+    function csp_isKnownAddr(csp) {
+        csp = csp|0;
+        return csp|0;
+    }
+
+    function csp_knownValAddr(csp) {
+        csp = csp|0;
+        var b = 0;
+        var sz = 0;
+        var off = 0;
+        var addr = 0;
+
+        b = csp_isKnownAddr(csp)|0;
+        sz = bs_sizeOf()|0;
+        off = 0;
+        addr = (b + sz + off)|0;
+
+        return addr|0;
+    }
+
+    function csp_consAddr(csp, i) {
+        csp = csp|0;
+        i = i|0;
+        var b = 0;
+        var sz = 0;
+        var off = 0;
+        var addr = 0;
+
+        b = csp_knownValAddr(csp)|0;
+        sz = bs_sizeOf()|0;
+        off = imul(c_sizeOf()|0, (i - 1)|0);
+        addr = (b + sz + off)|0;
+
+        return addr|0;
+    }
+
+    function csp_orderAddr(csp, i) {
+        csp = csp|0;
+        i = i|0;
+        var b = 0;
+        var sz = 0;
+        var off = 0;
+        var addr = 0;
+
+        b = csp_consAddr(csp, csp_cap)|0;
+        sz = 0; // csp_cap'th cons points just after the end of the array
+        off = imul(4, (i - 1)|0);
+        addr = (b + sz + off)|0;
+
+        return addr|0;
+    }
+
+    function csp_nconsOldAddr(csp) {
+        csp = csp|0;
+        var b = 0;
+        var sz = 0;
+        var off = 0;
+        var addr = 0;
+
+        b = csp_orderAddr(csp, csp_cap)|0;
+        sz = 0; // csp_cap'th order points just after the end of the array
+        off = 0;
+        addr = (b + sz + off)|0;
+
+        return addr|0;
+    }
+
+    function csp_nconsAddr(csp) {
+        csp = csp|0;
+        var b = 0;
+        var sz = 0;
+        var off = 0;
+        var addr = 0;
+
+        b = csp_nconsOldAddr(csp)|0;
+        sz = 4;
+        off = 0;
+        addr = (b + sz + off)|0;
+
+        return addr|0;
+    }
+
+    function csp_nconsOld(csp) {
+        csp = csp|0;
+        var addr = 0;
+        var ret = 0;
+
+        addr = csp_nconsOldAddr(csp)|0;
+        ret = MEM32[addr >> 2]|0;
+
+        return ret|0;
+    }
+
+    function csp_nconsOldSet(csp, n) {
+        csp = csp|0;
+        n = n|0;
+        var addr = 0;
+        var ret = 0;
+
+        addr = csp_nconsOldAddr(csp)|0;
+        MEM32[addr >> 2] = n;
+    }
+
+    function csp_ncons(csp) {
+        csp = csp|0;
+        var addr = 0;
+        var ret = 0;
+
+        addr = csp_nconsAddr(csp)|0;
+        ret = MEM32[addr >> 2]|0;
+
+        return ret|0;
+    }
+
+    function csp_nconsSet(csp, n) {
+        csp = csp|0;
+        n = n|0;
+        var addr = 0;
+        var ret = 0;
+
+        addr = csp_nconsAddr(csp)|0;
+        MEM32[addr >> 2] = n;
+    }
+
+    function csp_init(csp) {
+        csp = csp|0;
+        var isKnown = 0;
+        var knownVal = 0;
+
+        isKnown = csp_isKnownAddr(csp)|0;
+        bs_init(isKnown);
+
+        knownVal = csp_knownValAddr(csp)|0;
+        bs_init(knownVal);
+
+        csp_nconsOldSet(csp, 0);
+        csp_nconsSet(csp, 0);
+    }
+
     return {
         bs_init: bs_init,
         bs_copy: bs_copy,
@@ -389,6 +568,12 @@ function AsmMod(stdlib, foreign, heap) {
         c_init: c_init,
         c_initSumOnly: c_initSumOnly,
         c_sum: c_sum,
+
+        csp_init: csp_init,
+        csp_ncons: csp_ncons,
+        csp_nconsSet: csp_nconsSet,
+        csp_nconsOld: csp_nconsOld,
+        csp_nconsOldSet: csp_nconsOldSet,
     };
 };
 

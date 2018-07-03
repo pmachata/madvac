@@ -8,6 +8,7 @@ module.exports = {
         'set128-asm-tests': './src/set128-asm-tests.js',
         'set128-tests': './src/set128-tests.js',
         'cons-asm-tests': './src/cons-asm-tests.js',
+        'csp-asm-tests': './src/csp-asm-tests.js',
     },
     output: {
         filename: '[name].bundle.js',
