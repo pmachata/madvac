@@ -4,6 +4,11 @@ function AsmMod(stdlib, foreign, heap) {
     const MEM8 = new stdlib.Uint8Array(heap);
     const MEM32 = new stdlib.Uint32Array(heap);
     const log = foreign.log;
+    const showCons = foreign.showCons;
+    const enter = foreign.enter;
+    const leave = foreign.leave;
+    const allocaBitSet = foreign.allocaBitSet;
+    const allocaCons = foreign.allocaCons;
     const imul = stdlib.Math.imul;
 
     const ERR_KEY = 1;
@@ -281,6 +286,17 @@ function AsmMod(stdlib, foreign, heap) {
     function bs_equals(bset, other) {
         bset = bset|0;
         other = other|0;
+        var ret = 0;
+
+        ret = bs_cmp(bset, other)|0;
+
+        return (!ret)|0;
+    }
+
+    // Return -1, 0 or +1 when bset is respectively <, == or > other.
+    function bs_cmp(bset, other) {
+        bset = bset|0;
+        other = other|0;
         var addr1 = 0;
         var addr2 = 0;
         var i = 0;
@@ -294,15 +310,17 @@ function AsmMod(stdlib, foreign, heap) {
             v1 = MEM8[addr1]|0;
             v2 = MEM8[addr2]|0;
 
-            if (((v1|0) != (v2|0))|0) {
-                return 0;
+            if ((v1|0) < (v2|0)) {
+                return -1;
+            } else if ((v1|0) > (v2|0)) {
+                return 1;
             }
 
             addr1 = (addr1 + 1)|0;
             addr2 = (addr2 + 1)|0;
         }
 
-        return 1;
+        return 0;
     }
 
     function countBits(v) {
@@ -393,6 +411,23 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
+    function c_sumSet(cons, sum) {
+        cons = cons|0;
+        sum = sum|0;
+        var sumAddr = 0;
+
+        sumAddr = c_sumAddr(cons)|0;
+        MEM8[sumAddr|0] = sum;
+    }
+
+    function c_copy(cons, other) {
+        cons = cons|0;
+        other = other|0;
+
+        bs_copy(cons, other);
+        c_sumSet(cons, c_sum(other)|0);
+    }
+
     /**************************************************************************
      * CSP -- a constraint-satisfaction problem
      * A CSP is a set of constraints, each a Cons.
@@ -401,14 +436,27 @@ function AsmMod(stdlib, foreign, heap) {
      *   BitSet isKnown;   -- set of knowns (isKnown.has(x) iff x is known)
      *   BitSet knownVal;  -- values of knowns (isKnown.has(x) iff x is 1)
      *   Cons conses[cap]; -- conses in order of addition
-     *   int order[cap];   -- pointers to conses ordered by Cons.vs
-     *   int nconsOld;     -- number of old conses
+     *   int order[cap];   -- cons indices ordered by Cons.vs
+     *   int nconsOld;     -- number of already-processed conses
      *   int ncons;        -- total number of conses
      * };
      *
      * Since Cons is just a bit set and sum, manipulation of "vs" is done
      * directly through BitSet operations.
      **************************************************************************/
+
+    function csp_sizeOf() {
+        var ret = 0;
+
+        ret = ((bs_sizeOf()|0) +               // isKnown
+               (bs_sizeOf()|0) +               // knownVal
+               (imul(c_sizeOf()|0, csp_cap)) + // conses
+               (imul(4, csp_cap)) +            // order
+               4 +                             // nconsOld
+               4)|0;                           // ncons
+
+        return ret|0;
+    }
 
     function csp_isKnownAddr(csp) {
         csp = csp|0;
@@ -440,7 +488,7 @@ function AsmMod(stdlib, foreign, heap) {
 
         b = csp_knownValAddr(csp)|0;
         sz = bs_sizeOf()|0;
-        off = imul(c_sizeOf()|0, (i - 1)|0);
+        off = imul(c_sizeOf()|0, i|0);
         addr = (b + sz + off)|0;
 
         return addr|0;
@@ -534,6 +582,42 @@ function AsmMod(stdlib, foreign, heap) {
         MEM32[addr >> 2] = n;
     }
 
+    function csp_order(csp, i) {
+        csp = csp|0;
+        i = i|0;
+        var addr = 0;
+        var ret = 0;
+
+        addr = csp_orderAddr(csp, i)|0;
+        ret = MEM32[addr >> 2]|0;
+
+        return ret|0;
+    }
+
+    function csp_orderSet(csp, i, id) {
+        csp = csp|0;
+        i = i|0;
+        id = id|0;
+        var addr = 0;
+
+        addr = csp_orderAddr(csp, i)|0;
+        MEM32[addr >> 2] = id;
+    }
+
+    function csp_orderInsert(csp, i, id) {
+        csp = csp|0;
+        i = i|0;
+        id = id|0;
+        var j = 0;
+        var ord = 0;
+
+        for (j = csp_ncons(csp)|0; (j|0) > (i|0); j = (j - 1)|0) {
+            ord = csp_order(csp, (j - 1)|0)|0;
+            csp_orderSet(csp, j, ord);
+        }
+        csp_orderSet(csp, i, id);
+    }
+
     function csp_init(csp) {
         csp = csp|0;
         var isKnown = 0;
@@ -549,6 +633,207 @@ function AsmMod(stdlib, foreign, heap) {
         csp_nconsSet(csp, 0);
     }
 
+    // Return position of cons within csp or -(pos+1) if there's no such cons.
+    // The position encoded in the negative return value shows the sort order of
+    // cons.
+    function csp_findCons(csp, cons) {
+        csp = csp|0;
+        cons = cons|0;
+        var ncons = 0;
+        var a = 0;
+        var b = 0;
+        var mid = 0;
+        var candI = 0; // Candidate index.
+        var cand = 0;  // Candidate.
+        var cmp = 0;
+
+        ncons = csp_ncons(csp)|0;
+        b = ncons;
+        while (((a|0) < (ncons|0)) & ((a|0) < (b|0))) {
+            mid = (a + b) >> 1;
+            candI = csp_order(csp, mid)|0;
+            cand = csp_consAddr(csp, candI)|0;
+            cmp = bs_cmp(cons, cand)|0;
+            if ((cmp|0) == 0) {
+                return mid|0;
+            }
+
+            if ((cmp|0) < 0) {
+                // cons < cand
+                b = mid;
+            } else {
+                // cons > cand
+                a = (mid + 1)|0;
+            }
+        }
+
+        return (-a-1)|0;
+    }
+
+    function csp_hasCons(csp, cons) {
+        csp = csp|0;
+        cons = cons|0;
+        var consI = 0;
+        var ret = 0;
+
+        consI = csp_findCons(csp, cons)|0;
+        ret = ((consI|0) >= 0)|0;
+        return ret|0;
+    }
+
+    function csp_pushCons(csp, cons) {
+        csp = csp|0;
+        cons = cons|0;
+        var ni = 0;
+        var ncons = 0;
+        var no = 0;
+
+        no = csp_findCons(csp, cons)|0;
+        if ((no|0) >= 0) {
+            return 0;
+        }
+        no = (-((no + 1)|0))|0;
+
+        ni = csp_ncons(csp)|0;
+        ncons = csp_consAddr(csp, ni)|0;
+        c_copy(ncons, cons);
+        csp_orderInsert(csp, no, ni);
+        csp_nconsSet(csp, (ni + 1)|0);
+        return 1;
+    }
+
+    function csp_substKnowns(csp, cons) {
+        csp = csp|0;
+        cons = cons|0;
+        var isKnown = 0;
+        var knownVal = 0;
+        var ncons = 0;
+        var onesBs = 0;
+        var sum = 0;
+        var ret = 0;
+
+        isKnown = csp_isKnownAddr(csp)|0;
+        knownVal = csp_knownValAddr(csp)|0;
+
+        enter();
+        {
+            // ncons.vs should include the subset of cons.vs that is known.
+            ncons = allocaCons()|0;
+            bs_copy(ncons, isKnown);
+            bs_retainAll(ncons, cons);
+
+            // onesBs is subset of ncons.vs that evaluates to 1.
+            onesBs = allocaBitSet()|0;
+            bs_copy(onesBs, ncons);
+            bs_retainAll(ncons, knownVal);
+
+            // Finish ncons initialization & push it.
+            sum = ((c_sum(cons)|0) - (bs_size(onesBs)|0))|0;
+            c_initSumOnly(ncons, sum);
+            ret = csp_pushCons(csp, ncons)|0;
+        }
+        leave();
+
+        return ret|0;
+    }
+
+    function csp_deduceCons(csp, bs, val) {
+        csp = csp|0;
+        bs = bs|0;
+        val = val|0;
+
+        bs_addAll(csp_isKnownAddr(csp)|0, bs);
+        if (val) {
+            bs_addAll(csp_knownValAddr(csp)|0, bs);
+        }
+    }
+
+    function csp_deduceSimple(csp, cons) {
+        csp = csp|0;
+        cons = cons|0;
+        var sum = 0;
+        var nvs = 0;
+
+        // For a constraint of one of the following shapes:
+        //  1) A0 + A1 + ... + An = n
+        //  2) A0 + A1 + ... + An = 0
+        // Deduce that:
+        //  in case 1) A0 = A1 = ... = An = 1
+        //  in case 2) A0 = A1 = ... = An = 0
+        sum = c_sum(cons)|0;
+        if (!sum) {
+            csp_deduceCons(csp, cons, 0);
+        } else {
+            nvs = bs_size(cons)|0;
+            if ((nvs|0) == (sum|0)) {
+                csp_deduceCons(csp, cons, 1);
+            }
+        }
+    }
+
+    function csp_simplify(csp) {
+        csp = csp|0;
+        var progress = 0;
+        var cons = 0;
+        var ncons = 0;
+        var nconsOld = 0;
+        var i = 0;
+        var oldKnowns = 0;
+
+        enter();
+        {
+            oldKnowns = allocaBitSet()|0;
+            bs_copy(oldKnowns, csp_isKnownAddr(csp)|0);
+
+            while (1) {
+                progress = 0;
+
+                ncons = csp_ncons(csp)|0;
+                nconsOld = csp_nconsOld(csp)|0;
+                for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
+                    cons = csp_consAddr(csp, i)|0;
+                    if (csp_substKnowns(csp, cons)|0) {
+                        progress = 1;
+                    }
+                    csp_deduceSimple(csp, cons);
+                    if (!(bs_equals(oldKnowns, csp_isKnownAddr(csp)|0)|0)) {
+                        progress = 1;
+                    }
+                }
+                if (!progress) {
+                    break;
+                }
+                csp_nconsOldSet(csp, ncons);
+            }
+        }
+        leave();
+    }
+
+    function csp_knownsSize(csp) {
+        csp = csp|0;
+        var ret = 0;
+
+        ret = bs_size(csp_isKnownAddr(csp)|0)|0;
+        return ret|0;
+    }
+
+    function csp_known(csp, v) {
+        csp = csp|0;
+        v = v|0;
+        var ret = 0;
+        var isKnown = 0;
+        var knownVal = 0;
+
+        isKnown = csp_isKnownAddr(csp)|0;
+        if (!(bs_has(isKnown, v)|0)) {
+            return -1;
+        }
+        knownVal = csp_knownValAddr(csp)|0;
+        ret = !!(bs_has(knownVal, v)|0);
+
+        return ret|0;
+    }
+
     return {
         bs_init: bs_init,
         bs_copy: bs_copy,
@@ -561,19 +846,32 @@ function AsmMod(stdlib, foreign, heap) {
         bs_addAll: bs_addAll,
         bs_removeAll: bs_removeAll,
         bs_retainAll: bs_retainAll,
+        bs_cmp: bs_cmp,
         bs_equals: bs_equals,
         bs_size: bs_size,
         bs_sizeOf: bs_sizeOf,
 
+        c_sizeOf: c_sizeOf,
         c_init: c_init,
         c_initSumOnly: c_initSumOnly,
         c_sum: c_sum,
+        c_sumSet: c_sumSet,
+        c_copy: c_copy,
 
-        csp_init: csp_init,
+        csp_sizeOf: csp_sizeOf,
+        csp_consAddr: csp_consAddr,
         csp_ncons: csp_ncons,
         csp_nconsSet: csp_nconsSet,
         csp_nconsOld: csp_nconsOld,
         csp_nconsOldSet: csp_nconsOldSet,
+        csp_order: csp_order,
+        csp_orderSet: csp_order,
+        csp_init: csp_init,
+        csp_hasCons: csp_hasCons,
+        csp_pushCons: csp_pushCons,
+        csp_simplify: csp_simplify,
+        csp_knownsSize: csp_knownsSize,
+        csp_known: csp_known,
     };
 };
 

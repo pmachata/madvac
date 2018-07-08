@@ -2,7 +2,7 @@ import { Cons, CSP } from './csp.js';
 import { assert } from 'chai';
 
 var csp = new CSP();
-csp.pushCons(new Cons([0, 1], [10]));
+csp.pushCons(new Cons([0, 1], 10));
 csp.simplify();
 assert.strictEqual(csp.knowns.size, 0, "1: knowns.size");
 
