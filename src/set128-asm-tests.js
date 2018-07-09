@@ -1,7 +1,9 @@
 import { assert } from 'chai';
 import { asm, heap } from './asmctx.js';
 
-var vs = heap.allocBitSet();
+heap.enter();
+
+var vs = heap.allocaBitSet();
 asm.bs_init(vs);
 assert.strictEqual(asm.bs_select(0x00), 0x001, "select 0x0");
 assert.strictEqual(asm.bs_select(0x04), 0x010, "select 0x4");
@@ -13,6 +15,7 @@ assert.strictEqual(asm.bs_select(0x14), 0x210, "select 0x10");
 for (let i = 0; i < 128; ++i) {
     assert.isNotOk(asm.bs_has(vs, i), "hasKey " + i);
 }
+assert.isOk(asm.bs_isEmpty(vs), "isEmpty");
 
 var keys = [2, 4, 50, 8, 9, 10, 15, 20, 40, 100];
 for (let i = 0; i < keys.length; ++i) {
@@ -20,6 +23,7 @@ for (let i = 0; i < keys.length; ++i) {
     assert.strictEqual(asm.bs_size(vs), i,
                        "size " + i + " before addition");
     asm.bs_add(vs, key);
+    assert.isNotOk(asm.bs_isEmpty(vs), "!isEmpty");
     assert.strictEqual(asm.bs_size(vs), i+1,
                        "size " + (i+1) + " after addition");
     assert.isOk(asm.bs_has(vs, key), "hasKey " + key + " after addition");
@@ -30,23 +34,23 @@ for (let i = 0; i < keys.length; ++i) {
     assert.isOk(asm.bs_has(vs, key), "hasKey " + key + " still holds");
 }
 
-var vs2 = heap.allocBitSet();
+var vs2 = heap.allocaBitSet();
 asm.bs_copy(vs2, vs);
 
 assert.isOk(asm.bs_equals(vs, vs), "vs equals itself");
 assert.isOk(asm.bs_equals(vs, vs2), "vs equals copy");
 assert.isOk(asm.bs_equals(vs2, vs), "copy equals vs");
 
-var vs3 = heap.allocBitSet();
+var vs3 = heap.allocaBitSet();
 asm.bs_init(vs3);
 for (let i = keys.length - 1; i >= 0; --i) {
     asm.bs_add(vs3, keys[i]);
 }
 
-var vs4 = heap.allocBitSet();
+var vs4 = heap.allocaBitSet();
 asm.bs_init(vs4);
 
-var vs5 = heap.allocBitSet();
+var vs5 = heap.allocaBitSet();
 asm.bs_init(vs5);
 
 assert.isOk(asm.bs_equals(vs, vs3) && asm.bs_equals(vs3, vs),
@@ -77,7 +81,7 @@ assert.isOk(asm.bs_hasAll(vs, vs4),
 assert.isNotOk(asm.bs_hasAll(vs4, vs),
                "a set's \"odd\" subset doesn't contain the original set");
 
-var vs6 = heap.allocBitSet();
+var vs6 = heap.allocaBitSet();
 asm.bs_copy(vs6, vs4);
 
 asm.bs_addAll(vs5, vs4);
@@ -100,7 +104,7 @@ for (let i = 0; i < keys.length; ++i) {
     assert.isNotOk(asm.bs_has(vs4, keys[i]), "the element disappeared");
 }
 
-var vs7 = heap.allocBitSet();
+var vs7 = heap.allocaBitSet();
 asm.bs_init(vs7);
 assert.isOk(asm.bs_equals(vs4, vs7), "set is empty again");
 
@@ -132,7 +136,8 @@ assert.isOk(asm.bs_hasAny(vs6, vs),
             "set contains some keys from superset of itself");
 
 for (let i = 0; i < keys.length; ++i) {
-    var vs8 = heap.allocBitSet();
+    heap.enter();
+    var vs8 = heap.allocaBitSet();
     asm.bs_init(vs8);
 
     let key = keys[i];
@@ -142,7 +147,7 @@ for (let i = 0; i < keys.length; ++i) {
     assert.isOk(asm.bs_hasAny(vs8, vs),
                 "one element subset of set should have any from that set");
 
-    var vs9 = heap.allocBitSet();
+    var vs9 = heap.allocaBitSet();
     asm.bs_copy(vs9, vs5);
     asm.bs_removeAll(vs9, vs8);
     if (asm.bs_has(vs5, key)) {
@@ -155,24 +160,17 @@ for (let i = 0; i < keys.length; ++i) {
     assert.isNotOk(asm.bs_has(vs9, key),
                    "differenceOf set doesn't contain ruled-out key");
 
-    heap.free(vs8);
-    heap.free(vs9);
+    heap.leave();
 }
 
 for (let i = 0; i < 128; ++i) {
-    var vs8 = heap.allocBitSet();
+    heap.enter();
+    var vs8 = heap.allocaBitSet();
     asm.bs_init(vs8);
     asm.bs_add(vs8, i);
     assert.equal(asm.bs_size(vs8), 1, "correct element count for any key");
     assert.isOk(asm.bs_has(vs8, i), "each key visible");
-    heap.free(vs8);
+    heap.leave();
 }
 
-heap.free(vs7);
-heap.free(vs6);
-heap.free(vs5);
-heap.free(vs4);
-heap.free(vs3);
-heap.free(vs2);
-heap.free(vs);
-heap.leakCheck();
+heap.leave();

@@ -4,14 +4,15 @@ function AsmMod(stdlib, foreign, heap) {
     const MEM8 = new stdlib.Uint8Array(heap);
     const MEM32 = new stdlib.Uint32Array(heap);
     const log = foreign.log;
+    const _throw = foreign._throw;
     const showCons = foreign.showCons;
+    const showBitSet = foreign.showBitSet;
+    const showKnown = foreign.showKnown;
     const enter = foreign.enter;
     const leave = foreign.leave;
     const allocaBitSet = foreign.allocaBitSet;
     const allocaCons = foreign.allocaCons;
     const imul = stdlib.Math.imul;
-
-    const ERR_KEY = 1;
 
     // 16 bytes for 128 bit values.
     const bs_bufSize = 16;
@@ -28,6 +29,9 @@ function AsmMod(stdlib, foreign, heap) {
     // to allow for broader neighborhoods, a number-of-mines equation, and to
     // cover for potential pathological cases.
     const csp_cap = 1024;
+
+    const LOG_ERR = 0;
+    const LOG_INVALID_KEY = 1;
 
     /**************************************************************************
      * BitSet -- a set for up to 128 boolean elements.
@@ -59,8 +63,7 @@ function AsmMod(stdlib, foreign, heap) {
 
         i = ((key|0) / 8)|0;
         if (((i|0) < 0)|0 + ((i|0) >= (bs_bufSize|0))|0) {
-            log(ERR_KEY|0, i|0, 0);
-            i = 0;
+            _throw(LOG_INVALID_KEY|0, key|0);
         }
 
         // xxx make it i = i << 3?
@@ -351,6 +354,22 @@ function AsmMod(stdlib, foreign, heap) {
         }
 
         return size|0;
+    }
+
+    function bs_isEmpty(bset) {
+        bset = bset|0;
+        var addr = 0;
+        var i = 0;
+
+        addr = bs_bufAddr(bset, 0)|0;
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
+            if (MEM8[addr]|0) {
+                return 0;
+            }
+            addr = (addr + 1)|0;
+        }
+
+        return 1;
     }
 
     /**************************************************************************
@@ -688,6 +707,10 @@ function AsmMod(stdlib, foreign, heap) {
         var ncons = 0;
         var no = 0;
 
+        if (bs_isEmpty(cons)|0) { // xxx
+            return 0;
+        }
+
         no = csp_findCons(csp, cons)|0;
         if ((no|0) >= 0) {
             return 0;
@@ -717,27 +740,30 @@ function AsmMod(stdlib, foreign, heap) {
 
         enter();
         {
-            // ncons.vs should include the subset of cons.vs that is known.
+            // ncons.vs should include the subset of cons.vs that is unknown.
             ncons = allocaCons()|0;
-            bs_copy(ncons, isKnown);
-            bs_retainAll(ncons, cons);
+            bs_copy(ncons, cons);
+            bs_removeAll(ncons, isKnown);
 
-            // onesBs is subset of ncons.vs that evaluates to 1.
-            onesBs = allocaBitSet()|0;
-            bs_copy(onesBs, ncons);
-            bs_retainAll(ncons, knownVal);
+            if (!(bs_isEmpty(ncons)|0)) {
+                // onesBs is subset of cons.vs that evaluates to 1.
+                // This assumes that knownVal of unknown is 0.
+                onesBs = allocaBitSet()|0;
+                bs_copy(onesBs, cons);
+                bs_retainAll(onesBs, knownVal);
 
-            // Finish ncons initialization & push it.
-            sum = ((c_sum(cons)|0) - (bs_size(onesBs)|0))|0;
-            c_initSumOnly(ncons, sum);
-            ret = csp_pushCons(csp, ncons)|0;
+                // Finish ncons initialization & push it.
+                sum = ((c_sum(cons)|0) - (bs_size(onesBs)|0))|0;
+                c_initSumOnly(ncons, sum);
+                ret = csp_pushCons(csp, ncons)|0;
+            }
         }
         leave();
 
         return ret|0;
     }
 
-    function csp_deduceCons(csp, bs, val) {
+    function csp_deduceVs(csp, bs, val) {
         csp = csp|0;
         bs = bs|0;
         val = val|0;
@@ -762,22 +788,64 @@ function AsmMod(stdlib, foreign, heap) {
         //  in case 2) A0 = A1 = ... = An = 0
         sum = c_sum(cons)|0;
         if (!sum) {
-            csp_deduceCons(csp, cons, 0);
+            csp_deduceVs(csp, cons, 0);
         } else {
             nvs = bs_size(cons)|0;
             if ((nvs|0) == (sum|0)) {
-                csp_deduceCons(csp, cons, 1);
+                csp_deduceVs(csp, cons, 1);
             }
         }
+    }
+
+    function csp_deduceCoupled(csp, cons1, cons2) {
+        csp = csp|0;
+        cons1 = cons1|0;
+        cons2 = cons2|0;
+        var common = 0;
+        var diffCons = 0;
+        var k = 0;
+        var p = 0;
+
+	// For two constraints of the following shape:
+	//  1) A0 + A1 + ... + Ak + B0 + B1 + ... + Bm = p + k
+	//  2) B0 + B1 + ... + Bm + C0 + C1 + ... + Cn = p
+	// Deduce that:
+	//  A0 = A1 = ... = Ak = 1
+	//  C0 = C1 = ... = Cn = 0
+
+        enter();
+        {
+            common = allocaBitSet()|0;
+            bs_copy(common, cons1);
+            bs_retainAll(common, cons2);
+            if (!(bs_isEmpty(common)|0)) { // xxx
+                k = ((bs_size(cons1)|0) - (bs_size(common)|0))|0;
+                p = c_sum(cons2)|0;
+                if ((c_sum(cons1)|0) == ((p + k)|0)) {
+                    diffCons = allocaCons()|0;
+
+                    c_copy(diffCons, cons1);
+                    bs_removeAll(diffCons, common);
+                    csp_deduceVs(csp, diffCons, 1);
+
+                    c_copy(diffCons, cons2);
+                    bs_removeAll(diffCons, common);
+                    csp_deduceVs(csp, diffCons, 0);
+                }
+            }
+        }
+        leave();
     }
 
     function csp_simplify(csp) {
         csp = csp|0;
         var progress = 0;
         var cons = 0;
+        var cons2 = 0;
         var ncons = 0;
         var nconsOld = 0;
         var i = 0;
+        var j = 0;
         var oldKnowns = 0;
 
         enter();
@@ -795,7 +863,17 @@ function AsmMod(stdlib, foreign, heap) {
                     if (csp_substKnowns(csp, cons)|0) {
                         progress = 1;
                     }
+
                     csp_deduceSimple(csp, cons);
+
+                    for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
+                        cons2 = csp_consAddr(csp, j)|0;
+                        if ((bs_cmp(cons, cons2)|0) < 0) {
+                            csp_deduceCoupled(csp, cons, cons2);
+                            csp_deduceCoupled(csp, cons2, cons);
+                        }
+                    }
+
                     if (!(bs_equals(oldKnowns, csp_isKnownAddr(csp)|0)|0)) {
                         progress = 1;
                     }
@@ -817,24 +895,35 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
-    function csp_known(csp, v) {
+    function csp_isKnown(csp, v) {
         csp = csp|0;
         v = v|0;
         var ret = 0;
         var isKnown = 0;
-        var knownVal = 0;
 
         isKnown = csp_isKnownAddr(csp)|0;
-        if (!(bs_has(isKnown, v)|0)) {
-            return -1;
-        }
-        knownVal = csp_knownValAddr(csp)|0;
-        ret = !!(bs_has(knownVal, v)|0);
+        ret = bs_has(isKnown, v)|0;
 
         return ret|0;
     }
 
+    function csp_known(csp, v) {
+        csp = csp|0;
+        v = v|0;
+        var ret = 0;
+        var knownVal = 0;
+
+        if (!(csp_isKnown(csp, v)|0)) {
+            return -1;
+        }
+
+        knownVal = csp_knownValAddr(csp)|0;
+        ret = !!(bs_has(knownVal, v)|0);
+        return ret|0;
+    }
+
     return {
+        bs_sizeOf: bs_sizeOf,
         bs_init: bs_init,
         bs_copy: bs_copy,
         bs_select: bs_select,
@@ -849,7 +938,7 @@ function AsmMod(stdlib, foreign, heap) {
         bs_cmp: bs_cmp,
         bs_equals: bs_equals,
         bs_size: bs_size,
-        bs_sizeOf: bs_sizeOf,
+        bs_isEmpty: bs_isEmpty,
 
         c_sizeOf: c_sizeOf,
         c_init: c_init,
@@ -871,6 +960,7 @@ function AsmMod(stdlib, foreign, heap) {
         csp_pushCons: csp_pushCons,
         csp_simplify: csp_simplify,
         csp_knownsSize: csp_knownsSize,
+        csp_isKnown: csp_isKnown,
         csp_known: csp_known,
     };
 };
