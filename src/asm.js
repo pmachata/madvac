@@ -330,7 +330,7 @@ function AsmMod(stdlib, foreign, heap) {
         v = v|0;
         var c = 0;
 
-	// http://www-graphics.stanford.edu/~seander/bithacks.html#CountBitsSetKernighan
+	// http://www.graphics.stanford.edu/~seander/bithacks.html#CountBitsSetKernighan
 	for (c = 0; (v|0) != 0; c = (c + 1)|0) {
 	    v = v & ((v - 1)|0);
         }
@@ -354,6 +354,35 @@ function AsmMod(stdlib, foreign, heap) {
         }
 
         return size|0;
+    }
+
+    // Store bset's elements to an array, one element number per byte.
+    function bs_elements(bset, array) {
+        bset = bset|0;
+        array = array|0;
+        var ct = 0;
+        var i = 0;
+        var j = 0;
+        var v = 0;
+        var m = 0;
+        var addr = 0;
+
+        addr = bs_bufAddr(bset, 0)|0;
+
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
+            v = MEM8[addr]|0;
+            for (m = 1; (m|0) < 0x100; m = m << 1) {
+                if (v & m) {
+                    MEM8[array] = j;
+                    array = (array + 1)|0;
+                    ct = (ct + 1)|0;
+                }
+                j = (j + 1)|0;
+            }
+            addr = (addr + 1)|0;
+        }
+
+        return ct|0;
     }
 
     function bs_isEmpty(bset) {
@@ -837,8 +866,9 @@ function AsmMod(stdlib, foreign, heap) {
         leave();
     }
 
-    function csp_simplify(csp) {
+    function csp_simplify(csp, knownsArray) {
         csp = csp|0;
+        knownsArray = knownsArray|0;
         var progress = 0;
         var cons = 0;
         var cons2 = 0;
@@ -847,6 +877,8 @@ function AsmMod(stdlib, foreign, heap) {
         var i = 0;
         var j = 0;
         var oldKnowns = 0;
+        var newKnowns = 0;
+        var ret = 0;
 
         enter();
         {
@@ -883,8 +915,19 @@ function AsmMod(stdlib, foreign, heap) {
                 }
                 csp_nconsOldSet(csp, ncons);
             }
+
+            if (knownsArray) {
+                newKnowns = allocaBitSet()|0;
+                bs_copy(newKnowns, csp_isKnownAddr(csp)|0);
+                bs_removeAll(newKnowns, oldKnowns);
+                ret = bs_elements(newKnowns, knownsArray)|0;
+            } else {
+                ret = 0;
+            }
         }
         leave();
+
+        return ret|0;
     }
 
     function csp_knownsSize(csp) {

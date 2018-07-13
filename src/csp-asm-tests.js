@@ -99,10 +99,14 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [0, 1], 10);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
+
     assert.strictEqual(asm.csp_knownsSize(csp), 0, "6: knowns.size");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [].toString(), "6: array of knowns");
 
     heap.leave();
 }
@@ -110,13 +114,17 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 3, 5], 3);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
+
     assert.strictEqual(asm.csp_knownsSize(csp), 3, "7: knowns.size");
     assert.strictEqual(asm.csp_known(csp, 1), 1, "7: knowns.get(1)");
     assert.strictEqual(asm.csp_known(csp, 3), 1, "7: knowns.get(3)");
     assert.strictEqual(asm.csp_known(csp, 5), 1, "7: knowns.get(5)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [1, 3, 5].toString(), "7: array of knowns");
 
     heap.leave();
 }
@@ -124,13 +132,17 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 3, 5], 0);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
+
     assert.strictEqual(asm.csp_knownsSize(csp), 3, "8: knowns.size");
     assert.strictEqual(asm.csp_known(csp, 1), 0, "8: knowns.get(1)");
     assert.strictEqual(asm.csp_known(csp, 3), 0, "8: knowns.get(3)");
     assert.strictEqual(asm.csp_known(csp, 5), 0, "8: knowns.get(5)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [1, 3, 5].toString(), "8: array of knowns");
 
     heap.leave();
 }
@@ -138,10 +150,11 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 3, 5], 0);
     csp_pushCons(csp, [2, 4, 6], 3);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
 
     assert.strictEqual(asm.csp_knownsSize(csp), 6, "9: knowns.size");
     assert.strictEqual(asm.csp_known(csp, 1), 0, "9: knowns.get(1)");
@@ -150,6 +163,8 @@ function csp_new() {
     assert.strictEqual(asm.csp_known(csp, 2), 1, "9: knowns.get(2)");
     assert.strictEqual(asm.csp_known(csp, 4), 1, "9: knowns.get(4)");
     assert.strictEqual(asm.csp_known(csp, 6), 1, "9: knowns.get(6)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [1, 2, 3, 4, 5, 6].toString(), "9: array of knowns");
 
     heap.leave();
 }
@@ -157,16 +172,19 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 3, 5], 3);
     csp_pushCons(csp, [1, 3, 6], 2);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
 
     assert.strictEqual(asm.csp_knownsSize(csp), 4, "10: knowns.size");
     assert.strictEqual(asm.csp_known(csp, 1), 1, "10: knowns.get(1)");
     assert.strictEqual(asm.csp_known(csp, 3), 1, "10: knowns.get(3)");
     assert.strictEqual(asm.csp_known(csp, 5), 1, "10: knowns.get(5)");
     assert.strictEqual(asm.csp_known(csp, 6), 0, "10: knowns.get(6)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [1, 3, 5, 6].toString(), "10: array of knowns");
 
     heap.leave();
 }
@@ -174,16 +192,19 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 3, 6], 2);
     csp_pushCons(csp, [1, 3, 5], 3);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
 
     assert.strictEqual(asm.csp_knownsSize(csp), 4, "11: knowns.size");
     assert.strictEqual(asm.csp_known(csp, 1), 1, "11: knowns.get(1)");
     assert.strictEqual(asm.csp_known(csp, 3), 1, "11: knowns.get(3)");
     assert.strictEqual(asm.csp_known(csp, 5), 1, "11: knowns.get(5)");
     assert.strictEqual(asm.csp_known(csp, 6), 0, "11: knowns.get(6)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [1, 3, 5, 6].toString(), "11: array of knowns");
 
     heap.leave();
 }
@@ -191,12 +212,15 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 3, 6], 2);
     csp_pushCons(csp, [1, 3, 5, 6], 3);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
 
     assert.strictEqual(asm.csp_known(csp, 5), 1, "11: knowns.get(5)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [5].toString(), "12: array of knowns");
 
     heap.leave();
 }
@@ -204,13 +228,16 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 3, 6], 2);
     csp_pushCons(csp, [1, 3, 5, 6, 7], 4);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
 
     assert.strictEqual(asm.csp_known(csp, 5), 1, "12: knowns.get(5)");
     assert.strictEqual(asm.csp_known(csp, 7), 1, "12: knowns.get(7)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [5, 7].toString(), "12: array of knowns");
 
     heap.leave();
 }
@@ -218,13 +245,16 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 3, 6], 2);
     csp_pushCons(csp, [1, 3, 5, 6, 7], 2);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
 
     assert.strictEqual(asm.csp_known(csp, 5), 0, "13: knowns.get(5)");
     assert.strictEqual(asm.csp_known(csp, 7), 0, "13: knowns.get(7)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [5, 7].toString(), "13: array of knowns");
 
     heap.leave();
 }
@@ -232,10 +262,11 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 2, 3, 4, 5], 2);
     csp_pushCons(csp, [3, 4, 5, 6, 7], 4);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
 
     assert.strictEqual(asm.csp_known(csp, 1), 0, "14: knowns.get(1)");
     assert.strictEqual(asm.csp_known(csp, 2), 0, "14: knowns.get(2)");
@@ -244,6 +275,8 @@ function csp_new() {
     assert.isNotOk(asm.csp_isKnown(csp, 5), "14: knowns.get(5)");
     assert.strictEqual(asm.csp_known(csp, 6), 1, "14: knowns.get(6)");
     assert.strictEqual(asm.csp_known(csp, 7), 1, "14: knowns.get(7)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [1, 2, 6, 7].toString(), "14: array of knowns");
 
     heap.leave();
 }
@@ -251,15 +284,18 @@ function csp_new() {
 {
     heap.enter();
 
+    let newKnowns = heap.allocaNewKnowns();
     let csp = csp_new();
     csp_pushCons(csp, [1, 2, 3], 2);
     csp_pushCons(csp, [2, 3, 4], 1);
     csp_pushCons(csp, [1, 4, 5], 2);
-    asm.csp_simplify(csp);
+    let c = asm.csp_simplify(csp, newKnowns);
 
     assert.strictEqual(asm.csp_known(csp, 1), 1, "15: knowns.get(1)");
     assert.strictEqual(asm.csp_known(csp, 4), 0, "15: knowns.get(4)");
     assert.strictEqual(asm.csp_known(csp, 5), 1, "15: knowns.get(5)");
+    assert.strictEqual(heap.array(newKnowns, c).toString(),
+                       [1, 4, 5].toString(), "15: array of knowns");
 
     heap.leave();
 }

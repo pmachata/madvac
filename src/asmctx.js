@@ -178,14 +178,12 @@ class Heap {
         return this.alloca(asm.csp_sizeOf());
     }
 
-    leakCheck(addr) {
-        if (this.blocks.size != 1 ||
-            !this.blocks.has(0)) {
-            for (var [bAddr, bSize] of this.blocks) {
-                console.log("unfreed " + bAddr + " with size " + bSize);
-            }
-            throw "Leak check failed.";
-        }
+    allocaNewKnowns() {
+        return this.alloca(128);
+    }
+
+    array(addr, size) {
+        return new Int8Array(this.heap.slice(addr, addr + size));
     }
 };
 
