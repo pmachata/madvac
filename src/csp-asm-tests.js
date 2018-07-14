@@ -299,3 +299,25 @@ function csp_new() {
 
     heap.leave();
 }
+
+{
+    heap.enter();
+
+    let newKnowns = heap.allocaNewKnowns();
+    let csp = csp_new();
+    let c;
+
+    csp_pushCons(csp, [7], 0);
+    csp_pushCons(csp, [0, 1], 1);
+    csp_pushCons(csp, [1, 2], 1);
+    c = asm.csp_simplify(csp, newKnowns);
+    csp_pushCons(csp, [0, 1, 2], 2);
+    c = asm.csp_simplify(csp, newKnowns);
+
+    assert.strictEqual(asm.csp_known(csp, 0), 1, "16: step 6: knowns.get(0)");
+    assert.strictEqual(asm.csp_known(csp, 1), 0, "16: step 6: knowns.get(1)");
+    assert.strictEqual(asm.csp_known(csp, 2), 1, "16: step 6: knowns.get(2)");
+    assert.strictEqual(asm.csp_known(csp, 7), 0, "16: step 6: knowns.get(7)");
+
+    heap.leave();
+}

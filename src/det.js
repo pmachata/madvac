@@ -1,17 +1,16 @@
 import { Board } from './board.js';
-import { CSP, Cons } from './csp.js';
+import { asm, heap, logger } from './asmctx.js';
 
 class DetGame {
     constructor(board, x0, y0) {
         this.board = board;
-        this.csp = new CSP();
-        this.knowns = new Set();
-        this.uncoverQueue = [];
+        this.csp = heap.allocaCsp();
+        asm.csp_init(this.csp);
+        this.uncoverQueue = [board.field(x0, y0)];
 
         if (this.board.setFieldObserver(this) !== null) {
             throw "DetGame expects a board without an observer";
         }
-        this.board.field(x0, y0).uncover();
     }
 
     fieldBeforeUncover(field) {
@@ -20,15 +19,25 @@ class DetGame {
 
     fieldUncovered(field) {
         //console.log("uncovered " + field.toString());
-        var vs = field.neighbors().map(field => field.id);
         var sum = field.countNeighMines();
-        var cons = new Cons(vs, sum);
-        //console.log(" => " + cons);
-        this.csp.pushCons(cons);
+        var cons = heap.allocaCons();
+        asm.bs_init(cons);
+        for (let neigh of field.neighbors()) {
+            asm.bs_add(cons, neigh.id);
+        }
+        asm.c_initSumOnly(cons, sum);
+        //console.log(" => " + logger.cons_toString(cons));
+        asm.csp_pushCons(this.csp, cons);
     }
 
     step() {
-        for (var [id, value] of this.csp.simplify()) {
+        heap.enter();
+        var newKnownsPtr = heap.allocaNewKnowns();
+        var ct = asm.csp_simplify(this.csp, newKnownsPtr);
+        var newKnowns = heap.array(newKnownsPtr, ct);
+        for (let i in newKnowns) {
+            let id = newKnowns[i];
+            let value = asm.csp_known(this.csp, id);
             var field = this.board.fieldById(id);
             if (field === null) {
                 throw "CSP resolved a variable with no corresponding field";
@@ -42,22 +51,36 @@ class DetGame {
             }
         }
 
+        var ret;
         if (this.uncoverQueue.length > 0) {
             var field = this.uncoverQueue.pop();
             field.uncover();
-            return true;
+            ret = true;
+        } else {
+            ret = false;
         }
 
-        return false;
+        heap.leave();
+        return ret;
     }
 };
 
 // Play the game deterministically with the help of CSP.
 function detPlay(board, x0, y0) {
-    var game = new DetGame(board, x0, y0);
-    while (game.step()) {}
-    board.setFieldObserver(null);
-    return board.allFields().every(field => (!field.covered || field.hasMine));
+    var ret;
+
+    heap.enter();
+    {
+        var game = new DetGame(board, x0, y0);
+        while (game.step()) {
+        }
+        board.setFieldObserver(null);
+        ret = board.allFields().every(field => (!field.covered ||
+                                                field.hasMine));
+    }
+    heap.leave();
+
+    return ret;
 }
 
 export { detPlay };

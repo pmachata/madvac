@@ -45,16 +45,39 @@ function assertPlayable(what, board, x0, y0) {
     }
 }
 
-assertPlayable("1", ...boardFromDescription([".....",
+function assertNotPlayable(what, board, x0, y0) {
+    var playable = detPlay(board, x0, y0);
+    assert.isNotOk(playable);
+}
+
+assertPlayable("1", ...boardFromDescription(["x.x",
+                                             "...",
+                                             "..o"]))
+
+assertPlayable("2", ...boardFromDescription([".....",
                                              ".x.x.",
                                              ".....",
                                              "..o..",
                                              "....."]))
 
-assertPlayable("1", ...boardFromDescription([".....",
+assertNotPlayable("3", ...boardFromDescription([".xxxx",
+                                                "x..x.",
+                                                ".....",
+                                                "..o..",
+                                                "....."]))
+
+assertPlayable("4", ...boardFromDescription([".....",
                                              ".xxxx",
                                              "....x",
                                              "..o.x",
                                              "x...x"]))
+
+assertPlayable("5", ...boardFromDescription([".....x.x...x......",
+                                             "....x.x.x.x.x.....",
+                                             "...x.....x...x....",
+                                             "..x...........x...",
+                                             ".x......o......x..",
+                                             "..................",
+                                             "............x....."]))
 
 console.log("Det OK!");
