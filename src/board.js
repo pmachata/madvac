@@ -3,11 +3,14 @@ import { Field } from './field.js';
 class Board {
     constructor(w, h) {
         var fields = [];
+        var allFields = [];
         var i = 0;
         for (var y = 0; y < h; ++y) {
             var row = [];
             for (var x = 0; x < w; ++x) {
-                row.push(new Field(this, x, y, i++));
+                var field = new Field(this, x, y, i++);
+                row.push(field);
+                allFields.push(field);
             }
             fields.push(row);
         }
@@ -15,26 +18,29 @@ class Board {
         this.width = w;
         this.height = h;
         this.fields = fields;
+        this._allFields = allFields;
         this.fieldObserver = null;
     }
 
     field(x, y) {
-        if (y >= 0 && y < this.fields.length) {
-            var row = this.fields[y];
-            if (x >= 0 && x < row.length) {
-                return row[x];
-            }
+        if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+            var id = y * this.width + x;
+            return this.fieldById(id);
+        } else {
+            return null;
         }
-        return null;
     }
 
     fieldById(id) {
-        // xxx make this an O(1) operation
-        return this.allFields().find(field => field.id === id) || null;
+        if (id >= 0 && id < this._allFields.length) {
+            return this._allFields[id];
+        } else {
+            return null;
+        }
     }
 
     allFields() {
-        return [].concat(...this.fields);
+        return this._allFields;
     }
 
     callFieldBeforeUncover(field) {
@@ -55,6 +61,29 @@ class Board {
         var old = this.fieldObserver;
         this.fieldObserver = fieldObserver;
         return old;
+    }
+
+    toString() {
+        var ret = "";
+        for (var row of this.fields) {
+            for (var field of row) {
+                if (field.covered) {
+                    if (field.hasMine) {
+                        ret += "x";
+                    } else {
+                        ret += ".";
+                    }
+                } else {
+                    if (field.hasMine) {
+                        ret += "X";
+                    } else {
+                        ret += "_";
+                    }
+                }
+            }
+            ret += "\n";
+        }
+        return ret;
     }
 }
 
