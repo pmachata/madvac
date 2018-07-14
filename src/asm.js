@@ -851,14 +851,35 @@ function AsmMod(stdlib, foreign, heap) {
         }
     }
 
+    function __csp_deduceCoupled(csp, cons1, cons2, common) {
+        csp = csp|0;
+        cons1 = cons1|0;
+        cons2 = cons2|0;
+        common = common|0;
+        var diffCons = 0;
+        var k = 0;
+        var p = 0;
+
+        k = ((bs_size(cons1)|0) - (bs_size(common)|0))|0;
+        p = c_sum(cons2)|0;
+        if ((c_sum(cons1)|0) == ((p + k)|0)) {
+            diffCons = allocaCons()|0;
+
+            c_copy(diffCons, cons1);
+            bs_removeAll(diffCons, common);
+            csp_deduceVs(csp, diffCons, 1);
+
+            c_copy(diffCons, cons2);
+            bs_removeAll(diffCons, common);
+            csp_deduceVs(csp, diffCons, 0);
+        }
+    }
+
     function csp_deduceCoupled(csp, cons1, cons2) {
         csp = csp|0;
         cons1 = cons1|0;
         cons2 = cons2|0;
         var common = 0;
-        var diffCons = 0;
-        var k = 0;
-        var p = 0;
 
 	// For two constraints of the following shape:
 	//  1) A0 + A1 + ... + Ak + B0 + B1 + ... + Bm = p + k
@@ -872,19 +893,8 @@ function AsmMod(stdlib, foreign, heap) {
             common = allocaBitSet()|0;
             bs_copy(common, cons1);
             if (__bs_retainAll(common, cons2)|0) {
-                k = ((bs_size(cons1)|0) - (bs_size(common)|0))|0;
-                p = c_sum(cons2)|0;
-                if ((c_sum(cons1)|0) == ((p + k)|0)) {
-                    diffCons = allocaCons()|0;
-
-                    c_copy(diffCons, cons1);
-                    bs_removeAll(diffCons, common);
-                    csp_deduceVs(csp, diffCons, 1);
-
-                    c_copy(diffCons, cons2);
-                    bs_removeAll(diffCons, common);
-                    csp_deduceVs(csp, diffCons, 0);
-                }
+                __csp_deduceCoupled(csp, cons1, cons2, common);
+                __csp_deduceCoupled(csp, cons2, cons1, common);
             }
         }
         leave();
@@ -929,7 +939,6 @@ function AsmMod(stdlib, foreign, heap) {
                     for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
                         cons2 = csp_consAddr(csp, j)|0;
                         csp_deduceCoupled(csp, cons, cons2);
-                        csp_deduceCoupled(csp, cons2, cons);
                     }
                     if (!(bs_equals(oldKnowns, csp_isKnownAddr(csp)|0)|0)) {
                         progress = 1;
