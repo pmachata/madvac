@@ -4,10 +4,11 @@ import { asm, logger, heap } from './asmctx.js';
 function csp_pushCons(csp, vs, sum) {
     heap.enter();
     let cons = heap.allocaCons();
-    asm.c_init(cons, sum);
+    asm.bs_init(cons);
     for (let v of vs) {
         asm.bs_add(cons, v);
     }
+    asm.c_initSumOnly(cons, sum);
     asm.csp_pushCons(csp, cons);
     heap.leave();
 }
@@ -27,10 +28,11 @@ function csp_new() {
 
     // Insert x1+x2+x3=10.
     let cons = heap.allocaCons();
-    asm.c_init(cons, 10);
+    asm.bs_init(cons);
     asm.bs_add(cons, 1);
     asm.bs_add(cons, 2);
     asm.bs_add(cons, 3);
+    asm.c_initSumOnly(cons, 10);
     asm.csp_pushCons(csp, cons);
     assert.strictEqual(asm.csp_ncons(csp), 1, "1: CSP has 1 conses");
     assert.strictEqual(asm.csp_nconsOld(csp), 0, "1: CSP has 0 oldConses");
@@ -67,10 +69,11 @@ function csp_new() {
     for (let [_, ...vs] of vss) {
         // cons := a+b+c = 10 with a,b,c's defined above.
         let cons = heap.allocaCons();
-        asm.c_init(cons, 10);
+        asm.bs_init(cons);
         for (let v of vs) {
             asm.bs_add(cons, v);
         }
+        asm.c_initSumOnly(cons, 10);
         conses.push(cons);
     }
 

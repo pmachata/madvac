@@ -475,7 +475,7 @@ function AsmMod(stdlib, foreign, heap) {
         var sumAddr = 0;
 
         sumAddr = c_sumAddr(cons)|0;
-        MEM8[sumAddr|0] = sum;
+        MEM8[sumAddr] = sum;
     }
 
     function c_sum(cons) {
@@ -503,7 +503,7 @@ function AsmMod(stdlib, foreign, heap) {
         other = other|0;
 
         bs_copy(cons, other);
-        c_sumSet(cons, c_sum(other)|0);
+        MEM8[c_sumAddr(cons)|0] = MEM8[c_sumAddr(other)|0];
     }
 
     /**************************************************************************
