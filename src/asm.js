@@ -236,8 +236,7 @@ function AsmMod(stdlib, foreign, heap) {
         }
     }
 
-    // Remove all elements in other set from bset.
-    function bs_removeAll(bset, other) {
+    function __bs_removeAll(bset, other) {
         bset = bset|0;
         other = other|0;
         var addr1 = 0;
@@ -245,6 +244,7 @@ function AsmMod(stdlib, foreign, heap) {
         var i = 0;
         var v1 = 0;
         var v2 = 0;
+        var ret = 0;
 
         addr1 = bs_bufAddr(bset, 0)|0;
         addr2 = bs_bufAddr(other, 0)|0;
@@ -253,35 +253,63 @@ function AsmMod(stdlib, foreign, heap) {
             v1 = MEM8[addr1]|0;
             v2 = MEM8[addr2]|0;
 
-            MEM8[addr1] = v1 & ~v2;
+            v1 = v1 & ~v2;
+            MEM8[addr1] = v1;
+            if (v1) {
+                ret = 1;
+            }
 
             addr1 = (addr1 + 1)|0;
             addr2 = (addr2 + 1)|0;
         }
+
+        return ret|0;
+    }
+
+    // Remove all elements in other set from bset.
+    function bs_removeAll(bset, other) {
+        bset = bset|0;
+        other = other|0;
+
+        __bs_removeAll(bset, other)|0;
+    }
+
+    function __bs_retainAll(bset, other) {
+        bset = bset|0;
+        other = other|0;
+        var addr1 = 0;
+        var addr2 = 0;
+        var i = 0;
+        var v1 = 0;
+        var v2 = 0;
+        var ret = 0;
+
+        addr1 = bs_bufAddr(bset, 0)|0;
+        addr2 = bs_bufAddr(other, 0)|0;
+
+        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
+            v1 = MEM8[addr1]|0;
+            v2 = MEM8[addr2]|0;
+
+            v1 = v1 & v2;
+            MEM8[addr1] = v1;
+            if (v1) {
+                ret = 1;
+            }
+
+            addr1 = (addr1 + 1)|0;
+            addr2 = (addr2 + 1)|0;
+        }
+
+        return ret|0;
     }
 
     // Drop from bset all elements except those in other set.
     function bs_retainAll(bset, other) {
         bset = bset|0;
         other = other|0;
-        var addr1 = 0;
-        var addr2 = 0;
-        var i = 0;
-        var v1 = 0;
-        var v2 = 0;
 
-        addr1 = bs_bufAddr(bset, 0)|0;
-        addr2 = bs_bufAddr(other, 0)|0;
-
-        for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            v1 = MEM8[addr1]|0;
-            v2 = MEM8[addr2]|0;
-
-            MEM8[addr1] = v1 & v2;
-
-            addr1 = (addr1 + 1)|0;
-            addr2 = (addr2 + 1)|0;
-        }
+        __bs_retainAll(bset, other)|0;
     }
 
     // Return 1 iff bset and other hold the same elements.
@@ -767,9 +795,8 @@ function AsmMod(stdlib, foreign, heap) {
             // ncons.vs should include the subset of cons.vs that is unknown.
             ncons = allocaCons()|0;
             bs_copy(ncons, cons);
-            bs_removeAll(ncons, isKnown);
 
-            if (!(bs_isEmpty(ncons)|0)) {
+            if (__bs_removeAll(ncons, isKnown)|0) {
                 // onesBs is subset of cons.vs that evaluates to 1.
                 // This assumes that knownVal of unknown is 0.
                 onesBs = allocaBitSet()|0;
@@ -841,8 +868,7 @@ function AsmMod(stdlib, foreign, heap) {
         {
             common = allocaBitSet()|0;
             bs_copy(common, cons1);
-            bs_retainAll(common, cons2);
-            if (!(bs_isEmpty(common)|0)) {
+            if (__bs_retainAll(common, cons2)|0) {
                 k = ((bs_size(cons1)|0) - (bs_size(common)|0))|0;
                 p = c_sum(cons2)|0;
                 if ((c_sum(cons1)|0) == ((p + k)|0)) {
