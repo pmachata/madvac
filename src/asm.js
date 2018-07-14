@@ -66,7 +66,6 @@ function AsmMod(stdlib, foreign, heap) {
             _throw(LOG_INVALID_KEY|0, key|0);
         }
 
-        // xxx make it i = i << 3?
         key = ((key|0) - imul(i|0, 8))|0;
         ret = ((i|0) << 8) | (1 << (key|0));
         return ret|0;
@@ -736,10 +735,6 @@ function AsmMod(stdlib, foreign, heap) {
         var ncons = 0;
         var no = 0;
 
-        if (bs_isEmpty(cons)|0) { // xxx
-            return 0;
-        }
-
         no = csp_findCons(csp, cons)|0;
         if ((no|0) >= 0) {
             return 0;
@@ -847,7 +842,7 @@ function AsmMod(stdlib, foreign, heap) {
             common = allocaBitSet()|0;
             bs_copy(common, cons1);
             bs_retainAll(common, cons2);
-            if (!(bs_isEmpty(common)|0)) { // xxx
+            if (!(bs_isEmpty(common)|0)) {
                 k = ((bs_size(cons1)|0) - (bs_size(common)|0))|0;
                 p = c_sum(cons2)|0;
                 if ((c_sum(cons1)|0) == ((p + k)|0)) {
