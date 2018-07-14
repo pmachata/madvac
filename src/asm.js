@@ -55,7 +55,8 @@ function AsmMod(stdlib, foreign, heap) {
     }
 
     // For a given set key, returns at which displacement in the buffer the key
-    // is located and the corresponding mask. Returns (dpl << 8) | mask.
+    // is located and the bit index at that displacement. Returns (dpl << 8) |
+    // ind.
     function bs_select(key) {
         key = key|0;
         var i = 0;
@@ -67,7 +68,7 @@ function AsmMod(stdlib, foreign, heap) {
         }
 
         key = ((key|0) - imul(i|0, 8))|0;
-        ret = ((i|0) << 8) | (1 << (key|0));
+        ret = (i << 8) | key;
         return ret|0;
     }
 
@@ -111,7 +112,7 @@ function AsmMod(stdlib, foreign, heap) {
         var ret = 0;
 
         dpl = bs_select(key)|0;
-        mask = ((dpl|0) & 0xff)|0;
+        mask = (1 << ((dpl|0) & 0xff))|0;
         dpl = ((dpl|0) >> 8)|0;
         addr = bs_bufAddr(bset, dpl)|0;
 
@@ -128,7 +129,7 @@ function AsmMod(stdlib, foreign, heap) {
         var addr = 0;
 
         dpl = bs_select(key)|0;
-        mask = ((dpl|0) & 0xff)|0;
+        mask = (1 << ((dpl|0) & 0xff))|0;
         dpl = ((dpl|0) >> 8)|0;
         addr = bs_bufAddr(bset, dpl)|0;
 
@@ -144,7 +145,7 @@ function AsmMod(stdlib, foreign, heap) {
         var addr = 0;
 
         dpl = bs_select(key)|0;
-        mask = ((dpl|0) & 0xff)|0;
+        mask = (1 << ((dpl|0) & 0xff))|0;
         dpl = ((dpl|0) >> 8)|0;
         addr = bs_bufAddr(bset, dpl)|0;
 
