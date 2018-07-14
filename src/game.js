@@ -35,7 +35,7 @@ class Game {
 
     fieldBeforeUncover(field) {
         if (!this.started) {
-            genGame(this.board, 10, field.x, field.y);
+            genGame(this.board, 30, field.x, field.y);
             this.started = true;
         }
         if (field.flagged) {
