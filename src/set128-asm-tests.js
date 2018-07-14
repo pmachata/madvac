@@ -7,10 +7,13 @@ var vs = heap.allocaBitSet();
 asm.bs_init(vs);
 assert.strictEqual(asm.bs_select(0x00), 0x000, "select 0x0");
 assert.strictEqual(asm.bs_select(0x04), 0x004, "select 0x4");
-assert.strictEqual(asm.bs_select(0x08), 0x100, "select 0x8");
-assert.strictEqual(asm.bs_select(0x0c), 0x104, "select 0xc");
-assert.strictEqual(asm.bs_select(0x10), 0x200, "select 0x10");
-assert.strictEqual(asm.bs_select(0x14), 0x204, "select 0x10");
+assert.strictEqual(asm.bs_select(0x08), 0x008, "select 0x8");
+assert.strictEqual(asm.bs_select(0x0c), 0x00c, "select 0xc");
+assert.strictEqual(asm.bs_select(0x10), 0x010, "select 0x10");
+assert.strictEqual(asm.bs_select(0x14), 0x014, "select 0x10");
+assert.strictEqual(asm.bs_select(0x20), 0x100, "select 0x20");
+assert.strictEqual(asm.bs_select(0x30), 0x110, "select 0x20");
+assert.strictEqual(asm.bs_select(0x40), 0x200, "select 0x20");
 
 for (let i = 0; i < 128; ++i) {
     assert.isNotOk(asm.bs_has(vs, i), "hasKey " + i);

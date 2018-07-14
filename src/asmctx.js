@@ -153,8 +153,10 @@ class Heap {
     }
 
     alloca(size) {
+        // Word-align all allocations.
+        var nsize = (((size - 1) >> 2) + 1) << 2;
         var ret = this.start;
-        this.start += size;
+        this.start += nsize;
         return ret;
     }
 

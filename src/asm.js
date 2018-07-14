@@ -14,8 +14,8 @@ function AsmMod(stdlib, foreign, heap) {
     const allocaCons = foreign.allocaCons;
     const imul = stdlib.Math.imul;
 
-    // 16 bytes for 128 bit values.
-    const bs_bufSize = 16;
+    // 4 uint32's for 128 bit values.
+    const bs_bufSize = 4;
 
     // To solve 128-element problems, the system will hold at least 128
     // constraints. Other constrains are derived from those by variable
@@ -37,12 +37,12 @@ function AsmMod(stdlib, foreign, heap) {
      * BitSet -- a set for up to 128 boolean elements.
      *
      * struct bs {
-     *   u8 buf[bs_bufSize];
+     *   u32 buf[bs_bufSize];
      * };
      **************************************************************************/
 
     function bs_sizeOf() {
-        return bs_bufSize;
+        return bs_bufSize << 2;
     }
 
     // For a given displacement, returns address in MEM8 of bset's dpl'th key.
@@ -50,7 +50,7 @@ function AsmMod(stdlib, foreign, heap) {
         bset = bset|0;
         dpl = dpl|0;
         var ret = 0;
-        ret = (bset|0) + dpl|0;
+        ret = (bset|0) + (dpl << 2)|0;
         return ret|0;
     }
 
@@ -62,12 +62,12 @@ function AsmMod(stdlib, foreign, heap) {
         var i = 0;
         var ret = 0;
 
-        i = ((key|0) / 8)|0;
+        i = ((key|0) / 32)|0;
         if (((i|0) < 0)|0 + ((i|0) >= (bs_bufSize|0))|0) {
             _throw(LOG_INVALID_KEY|0, key|0);
         }
 
-        key = ((key|0) - imul(i|0, 8))|0;
+        key = ((key|0) - imul(i|0, 32))|0;
         ret = (i << 8) | key;
         return ret|0;
     }
@@ -80,8 +80,8 @@ function AsmMod(stdlib, foreign, heap) {
 
         addr = bs_bufAddr(bset, 0)|0;
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            MEM8[addr] = 0;
-            addr = (addr + 1)|0;
+            MEM32[addr >> 2] = 0;
+            addr = (addr + 4)|0;
         }
     }
 
@@ -96,9 +96,9 @@ function AsmMod(stdlib, foreign, heap) {
         addr1 = bs_bufAddr(bset, 0)|0;
         addr2 = bs_bufAddr(other, 0)|0;
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            MEM8[addr1] = MEM8[addr2];
-            addr1 = (addr1 + 1)|0;
-            addr2 = (addr2 + 1)|0;
+            MEM32[addr1 >> 2] = MEM32[addr2 >> 2];
+            addr1 = (addr1 + 4)|0;
+            addr2 = (addr2 + 4)|0;
         }
     }
 
@@ -116,7 +116,7 @@ function AsmMod(stdlib, foreign, heap) {
         dpl = ((dpl|0) >> 8)|0;
         addr = bs_bufAddr(bset, dpl)|0;
 
-        ret = (MEM8[addr] & mask)|0;
+        ret = (MEM32[addr >> 2] & mask)|0;
         return ret|0;
     }
 
@@ -133,7 +133,7 @@ function AsmMod(stdlib, foreign, heap) {
         dpl = ((dpl|0) >> 8)|0;
         addr = bs_bufAddr(bset, dpl)|0;
 
-        MEM8[addr] = MEM8[addr] | mask;
+        MEM32[addr >> 2] = MEM32[addr >> 2] | mask;
     }
 
     // Remove an element with a given key from bset.
@@ -149,8 +149,8 @@ function AsmMod(stdlib, foreign, heap) {
         dpl = ((dpl|0) >> 8)|0;
         addr = bs_bufAddr(bset, dpl)|0;
 
-        if ((MEM8[addr] & mask)|0) {
-            MEM8[addr] = MEM8[addr] & ~mask;
+        if ((MEM32[addr >> 2] & mask)|0) {
+            MEM32[addr >> 2] = MEM32[addr >> 2] & ~mask;
             return 1;
         }
 
@@ -171,15 +171,15 @@ function AsmMod(stdlib, foreign, heap) {
         addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            v1 = MEM8[addr1]|0;
-            v2 = MEM8[addr2]|0;
+            v1 = MEM32[addr1 >> 2]|0;
+            v2 = MEM32[addr2 >> 2]|0;
 
             if ((~v1 & v2)|0) {
                 return 0;
             }
 
-            addr1 = (addr1 + 1)|0;
-            addr2 = (addr2 + 1)|0;
+            addr1 = (addr1 + 4)|0;
+            addr2 = (addr2 + 4)|0;
         }
 
         return 1;
@@ -199,15 +199,15 @@ function AsmMod(stdlib, foreign, heap) {
         addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            v1 = MEM8[addr1]|0;
-            v2 = MEM8[addr2]|0;
+            v1 = MEM32[addr1 >> 2]|0;
+            v2 = MEM32[addr2 >> 2]|0;
 
             if ((v1 & v2)|0) {
                 return 1;
             }
 
-            addr1 = (addr1 + 1)|0;
-            addr2 = (addr2 + 1)|0;
+            addr1 = (addr1 + 4)|0;
+            addr2 = (addr2 + 4)|0;
         }
 
         return 0;
@@ -227,13 +227,13 @@ function AsmMod(stdlib, foreign, heap) {
         addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            v1 = MEM8[addr1]|0;
-            v2 = MEM8[addr2]|0;
+            v1 = MEM32[addr1 >> 2]|0;
+            v2 = MEM32[addr2 >> 2]|0;
 
-            MEM8[addr1] = v1 | v2;
+            MEM32[addr1 >> 2] = v1 | v2;
 
-            addr1 = (addr1 + 1)|0;
-            addr2 = (addr2 + 1)|0;
+            addr1 = (addr1 + 4)|0;
+            addr2 = (addr2 + 4)|0;
         }
     }
 
@@ -251,17 +251,17 @@ function AsmMod(stdlib, foreign, heap) {
         addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            v1 = MEM8[addr1]|0;
-            v2 = MEM8[addr2]|0;
+            v1 = MEM32[addr1 >> 2]|0;
+            v2 = MEM32[addr2 >> 2]|0;
 
             v1 = v1 & ~v2;
-            MEM8[addr1] = v1;
+            MEM32[addr1 >> 2] = v1;
             if (v1) {
                 ret = 1;
             }
 
-            addr1 = (addr1 + 1)|0;
-            addr2 = (addr2 + 1)|0;
+            addr1 = (addr1 + 4)|0;
+            addr2 = (addr2 + 4)|0;
         }
 
         return ret|0;
@@ -289,17 +289,17 @@ function AsmMod(stdlib, foreign, heap) {
         addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            v1 = MEM8[addr1]|0;
-            v2 = MEM8[addr2]|0;
+            v1 = MEM32[addr1 >> 2]|0;
+            v2 = MEM32[addr2 >> 2]|0;
 
             v1 = v1 & v2;
-            MEM8[addr1] = v1;
+            MEM32[addr1 >> 2] = v1;
             if (v1) {
                 ret = 1;
             }
 
-            addr1 = (addr1 + 1)|0;
-            addr2 = (addr2 + 1)|0;
+            addr1 = (addr1 + 4)|0;
+            addr2 = (addr2 + 4)|0;
         }
 
         return ret|0;
@@ -338,8 +338,8 @@ function AsmMod(stdlib, foreign, heap) {
         addr2 = bs_bufAddr(other, 0)|0;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            v1 = MEM8[addr1]|0;
-            v2 = MEM8[addr2]|0;
+            v1 = MEM32[addr1 >> 2]|0;
+            v2 = MEM32[addr2 >> 2]|0;
 
             if ((v1|0) < (v2|0)) {
                 return -1;
@@ -347,8 +347,8 @@ function AsmMod(stdlib, foreign, heap) {
                 return 1;
             }
 
-            addr1 = (addr1 + 1)|0;
-            addr2 = (addr2 + 1)|0;
+            addr1 = (addr1 + 4)|0;
+            addr2 = (addr2 + 4)|0;
         }
 
         return 0;
@@ -376,9 +376,9 @@ function AsmMod(stdlib, foreign, heap) {
         addr = bs_bufAddr(bset, 0)|0;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            v = MEM8[addr]|0;
+            v = MEM32[addr >> 2]|0;
             size = (size + (countBits(v)|0))|0;
-            addr = (addr + 1)|0;
+            addr = (addr + 4)|0;
         }
 
         return size|0;
@@ -391,6 +391,7 @@ function AsmMod(stdlib, foreign, heap) {
         var ct = 0;
         var i = 0;
         var j = 0;
+        var k = 0;
         var v = 0;
         var m = 0;
         var addr = 0;
@@ -398,8 +399,9 @@ function AsmMod(stdlib, foreign, heap) {
         addr = bs_bufAddr(bset, 0)|0;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            v = MEM8[addr]|0;
-            for (m = 1; (m|0) < 0x100; m = m << 1) {
+            v = MEM32[addr >> 2]|0;
+            for (k = 0; (k|0) < 32; k = (k + 1)|0) {
+                m = 1 << k;
                 if (v & m) {
                     MEM8[array] = j;
                     array = (array + 1)|0;
@@ -407,7 +409,7 @@ function AsmMod(stdlib, foreign, heap) {
                 }
                 j = (j + 1)|0;
             }
-            addr = (addr + 1)|0;
+            addr = (addr + 4)|0;
         }
 
         return ct|0;
@@ -420,10 +422,10 @@ function AsmMod(stdlib, foreign, heap) {
 
         addr = bs_bufAddr(bset, 0)|0;
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
-            if (MEM8[addr]|0) {
+            if (MEM32[addr >> 2]|0) {
                 return 0;
             }
-            addr = (addr + 1)|0;
+            addr = (addr + 4)|0;
         }
 
         return 1;
