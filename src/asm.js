@@ -504,15 +504,12 @@ function AsmMod(stdlib, foreign, heap) {
      *
      * struct {
      *   BitSet isKnown;   -- set of knowns (isKnown.has(x) iff x is known)
-     *   BitSet knownVal;  -- values of knowns (isKnown.has(x) iff x is 1)
+     *   BitSet knownVal;  -- values of knowns (knownVal.has(x) iff x is 1)
      *   Cons conses[cap]; -- conses in order of addition
      *   int order[cap];   -- cons indices ordered by Cons.vs
      *   int nconsOld;     -- number of already-processed conses
      *   int ncons;        -- total number of conses
      * };
-     *
-     * Since Cons is just a bit set and sum, manipulation of "vs" is done
-     * directly through BitSet operations.
      **************************************************************************/
 
     function csp_sizeOf() {
