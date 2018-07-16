@@ -12,7 +12,8 @@ assert.isOk(asm.bs_has(c1, 0), "1: has 0");
 assert.isOk(asm.bs_has(c1, 1), "1: has 1");
 assert.isNotOk(asm.bs_has(c1, 2), "1: hasn't 2");
 
-asm.c_init(c1, 20);
+asm.bs_init(c1);
+asm.c_initSumOnly(c1, 20);
 
 assert.strictEqual(asm.c_sum(c1), 20, "2: sum is 20");
 assert.isNotOk(asm.bs_has(c1, 0), "2: hasn't 0");

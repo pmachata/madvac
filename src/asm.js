@@ -459,14 +459,6 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
-    function c_init(cons, sum) {
-        cons = cons|0;
-        sum = sum|0;
-
-        bs_init(cons);
-        c_initSumOnly(cons, sum);
-    }
-
     // Partially initialize a Cons structure--initialize just sum, assuming
     // "cons" refers to a BitSet object that has already been initialized.
     function c_initSumOnly(cons, sum) {
@@ -1022,7 +1014,6 @@ function AsmMod(stdlib, foreign, heap) {
         bs_isEmpty: bs_isEmpty,
 
         c_sizeOf: c_sizeOf,
-        c_init: c_init,
         c_initSumOnly: c_initSumOnly,
         c_sum: c_sum,
         c_sumSet: c_sumSet,
