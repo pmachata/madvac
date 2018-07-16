@@ -78,7 +78,7 @@ function AsmMod(stdlib, foreign, heap) {
         var addr = 0;
         var i = 0;
 
-        addr = bs_bufAddr(bset, 0)|0;
+        addr = bset;
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             MEM32[addr >> 2] = 0;
             addr = (addr + 4)|0;
@@ -93,8 +93,8 @@ function AsmMod(stdlib, foreign, heap) {
         var addr2 = 0;
         var i = 0;
 
-        addr1 = bs_bufAddr(bset, 0)|0;
-        addr2 = bs_bufAddr(other, 0)|0;
+        addr1 = bset;
+        addr2 = other;
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             MEM32[addr1 >> 2] = MEM32[addr2 >> 2];
             addr1 = (addr1 + 4)|0;
@@ -167,8 +167,8 @@ function AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bs_bufAddr(bset, 0)|0;
-        addr2 = bs_bufAddr(other, 0)|0;
+        addr1 = bset;
+        addr2 = other;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM32[addr1 >> 2]|0;
@@ -195,8 +195,8 @@ function AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bs_bufAddr(bset, 0)|0;
-        addr2 = bs_bufAddr(other, 0)|0;
+        addr1 = bset;
+        addr2 = other;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM32[addr1 >> 2]|0;
@@ -223,8 +223,8 @@ function AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bs_bufAddr(bset, 0)|0;
-        addr2 = bs_bufAddr(other, 0)|0;
+        addr1 = bset;
+        addr2 = other;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM32[addr1 >> 2]|0;
@@ -247,8 +247,8 @@ function AsmMod(stdlib, foreign, heap) {
         var v2 = 0;
         var ret = 0;
 
-        addr1 = bs_bufAddr(bset, 0)|0;
-        addr2 = bs_bufAddr(other, 0)|0;
+        addr1 = bset;
+        addr2 = other;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM32[addr1 >> 2]|0;
@@ -285,8 +285,8 @@ function AsmMod(stdlib, foreign, heap) {
         var v2 = 0;
         var ret = 0;
 
-        addr1 = bs_bufAddr(bset, 0)|0;
-        addr2 = bs_bufAddr(other, 0)|0;
+        addr1 = bset;
+        addr2 = other;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM32[addr1 >> 2]|0;
@@ -334,8 +334,8 @@ function AsmMod(stdlib, foreign, heap) {
         var v1 = 0;
         var v2 = 0;
 
-        addr1 = bs_bufAddr(bset, 0)|0;
-        addr2 = bs_bufAddr(other, 0)|0;
+        addr1 = bset;
+        addr2 = other;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v1 = MEM32[addr1 >> 2]|0;
@@ -373,7 +373,7 @@ function AsmMod(stdlib, foreign, heap) {
         var i = 0;
         var v = 0;
 
-        addr = bs_bufAddr(bset, 0)|0;
+        addr = bset;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v = MEM32[addr >> 2]|0;
@@ -396,7 +396,7 @@ function AsmMod(stdlib, foreign, heap) {
         var m = 0;
         var addr = 0;
 
-        addr = bs_bufAddr(bset, 0)|0;
+        addr = bset;
 
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             v = MEM32[addr >> 2]|0;
@@ -420,7 +420,7 @@ function AsmMod(stdlib, foreign, heap) {
         var addr = 0;
         var i = 0;
 
-        addr = bs_bufAddr(bset, 0)|0;
+        addr = bset;
         for (; (i|0) < (bs_bufSize|0); i = (i + 1)|0) {
             if (MEM32[addr >> 2]|0) {
                 return 0;
