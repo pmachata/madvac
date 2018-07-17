@@ -769,39 +769,33 @@ function AsmMod(stdlib, foreign, heap) {
         return 1;
     }
 
-    function csp_substKnowns(csp, cons) {
+    function csp_substKnowns(csp, cons, ncons, onesBs) {
         csp = csp|0;
         cons = cons|0;
+        ncons = ncons|0;
+        onesBs = onesBs|0;
         var isKnown = 0;
         var knownVal = 0;
-        var ncons = 0;
-        var onesBs = 0;
         var sum = 0;
         var ret = 0;
 
         isKnown = csp_isKnownAddr(csp)|0;
         knownVal = csp_knownValAddr(csp)|0;
 
-        enter();
-        {
-            // ncons.vs should include the subset of cons.vs that is unknown.
-            ncons = allocaCons()|0;
-            bs_copy(ncons, cons);
+        // ncons.vs should include the subset of cons.vs that is unknown.
+        bs_copy(ncons, cons);
 
-            if (__bs_removeAll(ncons, isKnown)|0) {
-                // onesBs is subset of cons.vs that evaluates to 1.
-                // This assumes that knownVal of unknown is 0.
-                onesBs = allocaBitSet()|0;
-                bs_copy(onesBs, cons);
-                bs_retainAll(onesBs, knownVal);
+        if (__bs_removeAll(ncons, isKnown)|0) {
+            // onesBs is subset of cons.vs that evaluates to 1.
+            // This assumes that knownVal of unknown is 0.
+            bs_copy(onesBs, cons);
+            bs_retainAll(onesBs, knownVal);
 
-                // Finish ncons initialization & push it.
-                sum = ((c_sum(cons)|0) - (bs_size(onesBs)|0))|0;
-                c_initSumOnly(ncons, sum);
-                ret = csp_pushCons(csp, ncons)|0;
-            }
+            // Finish ncons initialization & push it.
+            sum = ((c_sum(cons)|0) - (bs_size(onesBs)|0))|0;
+            c_initSumOnly(ncons, sum);
+            ret = csp_pushCons(csp, ncons)|0;
         }
-        leave();
 
         return ret|0;
     }
@@ -902,14 +896,16 @@ function AsmMod(stdlib, foreign, heap) {
         var oldKnowns = 0;
         var newKnowns = 0;
         var ret = 0;
-        var common = 0;
+        var tmpCons = 0;
+        var tmpBs = 0;
 
         enter();
         {
             oldKnowns = allocaBitSet()|0;
             bs_copy(oldKnowns, csp_isKnownAddr(csp)|0);
 
-            common = allocaBitSet()|0;
+            tmpCons = allocaCons()|0;
+            tmpBs = allocaBitSet()|0;
 
             while (1) {
                 progress = 0;
@@ -919,7 +915,7 @@ function AsmMod(stdlib, foreign, heap) {
 
                 for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
                     cons = csp_consAddr(csp, j)|0;
-                    if (csp_substKnowns(csp, cons)|0) {
+                    if (csp_substKnowns(csp, cons, tmpCons, tmpBs)|0) {
                         progress = 1;
                     }
                 }
@@ -930,7 +926,7 @@ function AsmMod(stdlib, foreign, heap) {
 
                     for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
                         cons2 = csp_consAddr(csp, j)|0;
-                        csp_deduceCoupled(csp, cons, cons2, common);
+                        csp_deduceCoupled(csp, cons, cons2, tmpBs);
                     }
                     if (!(bs_equals(oldKnowns, csp_isKnownAddr(csp)|0)|0)) {
                         progress = 1;
