@@ -844,15 +844,19 @@ function AsmMod(stdlib, foreign, heap) {
         if ((c_sum(cons1)|0) == ((p + k)|0)) {
             diffCons = allocaCons()|0;
 
+            ret = 1;
+
             c_copy(diffCons, cons1);
-            bs_removeAll(diffCons, common);
-            csp_deduceVs(csp, diffCons, 1);
+            if (__bs_removeAll(diffCons, common)|0) {
+                csp_deduceVs(csp, diffCons, 1);
+                ret = 2;
+            }
 
             c_copy(diffCons, cons2);
-            bs_removeAll(diffCons, common);
-            csp_deduceVs(csp, diffCons, 0);
-
-            ret = 1;
+            if (__bs_removeAll(diffCons, common)|0) {
+                csp_deduceVs(csp, diffCons, 0);
+                ret = 2;
+            }
         }
 
         return ret|0;
@@ -863,6 +867,7 @@ function AsmMod(stdlib, foreign, heap) {
         cons1 = cons1|0;
         cons2 = cons2|0;
         common = common|0;
+        var ret = 0;
 
 	// For two constraints of the following shape:
 	//  1) A0 + A1 + ... + Ak + B0 + B1 + ... + Bm = p + k
@@ -873,9 +878,12 @@ function AsmMod(stdlib, foreign, heap) {
 
         bs_copy(common, cons1);
         if (__bs_retainAll(common, cons2)|0) {
-            if (!(__csp_deduceCoupled(csp, cons1, cons2, common)|0))
-                __csp_deduceCoupled(csp, cons2, cons1, common)|0;
+            ret = __csp_deduceCoupled(csp, cons1, cons2, common)|0;
+            if (!ret)
+                ret = __csp_deduceCoupled(csp, cons2, cons1, common)|0;
         }
+
+        return ret|0;
     }
 
     function csp_simplify(csp, knownsArray) {
@@ -894,6 +902,7 @@ function AsmMod(stdlib, foreign, heap) {
         var tmpCons = 0;
         var tmpBs = 0;
         var isKnownAddr = 0;
+        var deduced = 0;
 
         isKnownAddr = csp_isKnownAddr(csp)|0;
 
@@ -924,10 +933,10 @@ function AsmMod(stdlib, foreign, heap) {
 
                     for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
                         cons2 = csp_consAddr(csp, j)|0;
-                        csp_deduceCoupled(csp, cons, cons2, tmpBs);
-                    }
-                    if (!(bs_equals(oldKnowns, isKnownAddr)|0)) {
-                        progress = 1;
+                        deduced = csp_deduceCoupled(csp, cons, cons2, tmpBs)|0;
+                        if ((deduced|0) == 2) {
+                            progress = 1;
+                        }
                     }
                 }
 
