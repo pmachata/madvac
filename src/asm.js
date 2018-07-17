@@ -774,22 +774,17 @@ function AsmMod(stdlib, foreign, heap) {
         cons = cons|0;
         ncons = ncons|0;
         onesBs = onesBs|0;
-        var isKnown = 0;
-        var knownVal = 0;
         var sum = 0;
         var ret = 0;
-
-        isKnown = csp_isKnownAddr(csp)|0;
-        knownVal = csp_knownValAddr(csp)|0;
 
         // ncons.vs should include the subset of cons.vs that is unknown.
         bs_copy(ncons, cons);
 
-        if (__bs_removeAll(ncons, isKnown)|0) {
+        if (__bs_removeAll(ncons, csp_isKnownAddr(csp)|0)|0) {
             // onesBs is subset of cons.vs that evaluates to 1.
             // This assumes that knownVal of unknown is 0.
             bs_copy(onesBs, cons);
-            bs_retainAll(onesBs, knownVal);
+            bs_retainAll(onesBs, csp_knownValAddr(csp)|0);
 
             // Finish ncons initialization & push it.
             sum = ((c_sum(cons)|0) - (bs_size(onesBs)|0))|0;
@@ -898,11 +893,14 @@ function AsmMod(stdlib, foreign, heap) {
         var ret = 0;
         var tmpCons = 0;
         var tmpBs = 0;
+        var isKnownAddr = 0;
+
+        isKnownAddr = csp_isKnownAddr(csp)|0;
 
         enter();
         {
             oldKnowns = allocaBitSet()|0;
-            bs_copy(oldKnowns, csp_isKnownAddr(csp)|0);
+            bs_copy(oldKnowns, isKnownAddr);
 
             tmpCons = allocaCons()|0;
             tmpBs = allocaBitSet()|0;
@@ -928,7 +926,7 @@ function AsmMod(stdlib, foreign, heap) {
                         cons2 = csp_consAddr(csp, j)|0;
                         csp_deduceCoupled(csp, cons, cons2, tmpBs);
                     }
-                    if (!(bs_equals(oldKnowns, csp_isKnownAddr(csp)|0)|0)) {
+                    if (!(bs_equals(oldKnowns, isKnownAddr)|0)) {
                         progress = 1;
                     }
                 }
@@ -941,7 +939,7 @@ function AsmMod(stdlib, foreign, heap) {
 
             if (knownsArray) {
                 newKnowns = allocaBitSet()|0;
-                bs_copy(newKnowns, csp_isKnownAddr(csp)|0);
+                bs_copy(newKnowns, isKnownAddr);
                 bs_removeAll(newKnowns, oldKnowns);
                 ret = bs_elements(newKnowns, knownsArray)|0;
             } else {
