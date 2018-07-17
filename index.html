@@ -86,7 +86,7 @@
 
   <script type="text/x-template" id="appField">
     <div class="field"
-         v-on:click="toggle"
+         v-on:click.prevent="toggle"
          v-on:contextmenu.prevent="flag">
         <svg v-if="covered()"
              class="covered"
