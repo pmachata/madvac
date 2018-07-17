@@ -71,6 +71,9 @@
         font: bold 30px Verdana, Helvetica, Arial, sans-serif;
         text-anchor: middle;
         dominant-baseline: middle;
+    }
+
+    .unselectable {
         cursor: default;
         -webkit-user-select: none;
         -moz-user-select: none;
@@ -139,7 +142,7 @@
   </script>
 
   <body>
-    <div id="app">
+    <div id="app" class="unselectable">
       <app-board></app-board>
     </div>
   </body>
