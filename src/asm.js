@@ -920,19 +920,19 @@ function AsmMod(stdlib, foreign, heap) {
                 ncons = csp_ncons(csp)|0;
                 nconsOld = csp_nconsOld(csp)|0;
 
-                for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
-                    cons = csp_consAddr(csp, j)|0;
-                    if (csp_substKnowns(csp, cons, tmpCons, tmpBs)|0) {
-                        progress = 1;
-                    }
-                }
-
                 for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
                     cons = csp_consAddr(csp, i)|0;
                     csp_deduceSimple(csp, cons);
+                }
 
-                    for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
-                        cons2 = csp_consAddr(csp, j)|0;
+                for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
+                    cons2 = csp_consAddr(csp, j)|0;
+                    if (csp_substKnowns(csp, cons2, tmpCons, tmpBs)|0) {
+                        progress = 1;
+                    }
+
+                    for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
+                        cons = csp_consAddr(csp, i)|0;
                         deduced = csp_deduceCoupled(csp, cons, cons2, tmpBs)|0;
                         if ((deduced|0) == 2) {
                             progress = 1;
