@@ -73,6 +73,14 @@
         dominant-baseline: middle;
     }
 
+    .unselectable {
+        cursor: default;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+
     .board .row {
     }
     .board .cell {
@@ -81,7 +89,7 @@
 
   <script type="text/x-template" id="appField">
     <div class="field"
-         v-on:click="toggle"
+         v-on:click.prevent="toggle"
          v-on:contextmenu.prevent="flag">
         <svg v-if="covered()"
              class="covered"
@@ -134,7 +142,7 @@
   </script>
 
   <body>
-    <div id="app">
+    <div id="app" class="unselectable">
       <app-board></app-board>
     </div>
   </body>
