@@ -80,4 +80,13 @@ assertPlayable("5", ...boardFromDescription([".....x.x...x......",
                                              "..................",
                                              "............x....."]))
 
-console.log("Det OK!");
+assertNotPlayable("6", ...boardFromDescription(["xxxxxx.xxx",
+                                                ".x.x..xxxx",
+                                                ".x..x...xx",
+                                                "x..x...x.x",
+                                                "x..x.o...x",
+                                                "x..x...x.x",
+                                                ".x.x..xxxx",
+                                                "xxx.x.xx..",
+                                                "xxxxx....x",
+                                                "xx........"]))

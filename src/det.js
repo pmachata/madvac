@@ -76,7 +76,7 @@ function detPlay(board, x0, y0) {
         }
         board.setFieldObserver(null);
         ret = board.allFields().every(field => (!field.covered ||
-                                                field.hasMine));
+                                                (field.flagged && field.hasMine)));
     }
     heap.leave();
 
