@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { detPlay } from './det.js';
+import { assertPlayable, assertNotPlayable } from './tests.js';
 import { Board } from './board.js';
 
 function boardFromDescription(descr) {
@@ -29,25 +29,6 @@ function boardFromDescription(descr) {
         throw "Board is missing starting point";
     }
     return [board, x0, y0];
-}
-
-function assertPlayable(what, board, x0, y0) {
-    var playable = detPlay(board, x0, y0);
-    assert.isOk(playable);
-    for (var field of board.allFields()) {
-        if (field.hasMine) {
-            assert.isOk(field.flagged,
-                        what + ": " + field.toString() + " flagged");
-        } else {
-            assert.isNotOk(field.covered,
-                           what + ": " + field.toString() + " !covered");
-        }
-    }
-}
-
-function assertNotPlayable(what, board, x0, y0) {
-    var playable = detPlay(board, x0, y0);
-    assert.isNotOk(playable);
 }
 
 assertPlayable("1", ...boardFromDescription(["x.x",
