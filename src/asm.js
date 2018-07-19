@@ -571,7 +571,7 @@ function AsmMod(stdlib, foreign, heap) {
 
         b = csp_consAddr(csp, csp_cap)|0;
         sz = 0; // csp_cap'th cons points just after the end of the array
-        off = imul(4, (i - 1)|0);
+        off = imul(4, i);
         addr = (b + sz + off)|0;
 
         return addr|0;
