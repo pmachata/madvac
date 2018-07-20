@@ -734,7 +734,7 @@ function AsmMod(stdlib, foreign, heap) {
             }
         }
 
-        return (-a-1)|0;
+        return (0 - a - 1)|0;
     }
 
     function csp_hasCons(csp, cons) {
