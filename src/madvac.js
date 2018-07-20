@@ -17,6 +17,7 @@ Vue.component('app-field', {
         },
         flag: function() {
             this.game.flagField(this.x, this.y);
+            window.navigator.vibrate(100);
         },
 
         field: function() {
