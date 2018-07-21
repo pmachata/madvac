@@ -16,8 +16,11 @@ Vue.component('app-field', {
             this.game.openField(this.x, this.y);
         },
         flag: function() {
+            var flagged = this.field().flagged;
             this.game.flagField(this.x, this.y);
-            window.navigator.vibrate(100);
+            if (flagged !== this.field().flagged) {
+                window.navigator.vibrate(100);
+            }
         },
 
         field: function() {
