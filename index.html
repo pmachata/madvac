@@ -14,27 +14,9 @@
     div.field {
         display: table-cell;
         position: relative;
-        width: 40px;
-        height: 40px;
+        width: 9vmin;
+        height: 9vmin;
         cursor: default;
-    }
-    div.field img {
-        width: 40px;
-        height: 40px;
-        margin: 0;
-        padding: 0;
-    }
-    div.field div {
-        position: absolute;
-        width: 100%;
-        margin: 0;
-        top: 50%;
-        text-align: center;
-        vertical-align: center;
-        display: inline-block;
-
-        font-face: sans-serif;
-        font-size: 100%;
     }
     div.field svg {
         position: absolute;
@@ -68,7 +50,9 @@
     }
 
     div.field svg.neighCount text {
-        font: bold 30px Verdana, Helvetica, Arial, sans-serif;
+        font-weight: bold;
+        font-size: 150%;
+        font-family: Verdana, Helvetica, Arial, sans-serif;
         text-anchor: middle;
         dominant-baseline: middle;
     }
@@ -111,7 +95,8 @@
             <circle cx="16" cy="16" r="6" />
         </svg>
         <svg v-else-if="!covered()"
-             class="neighCount">
+             class="neighCount"
+             viewBox="0 0 32 32">
             <text x="50%" y="50%">{{countNeighMines() || ""}}</text>
         </svg>
 
