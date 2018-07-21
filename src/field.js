@@ -16,11 +16,9 @@ class Field {
         }
     }
 
-    toggle() {
+    open() {
         if (this.covered) {
             this.uncover();
-        } else {
-            this.covered = true;
         }
     }
 

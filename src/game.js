@@ -14,9 +14,9 @@ class Game {
         return this.board.field(x, y);
     }
 
-    toggleField(x, y) {
+    openField(x, y) {
         if (!this.over) {
-            this.field(x, y).toggle();
+            this.field(x, y).open();
         }
     }
 

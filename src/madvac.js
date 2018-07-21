@@ -12,8 +12,8 @@ Vue.component('app-field', {
         };
     },
     methods: {
-        toggle: function() {
-            this.game.toggleField(this.x, this.y);
+        open: function() {
+            this.game.openField(this.x, this.y);
         },
         flag: function() {
             this.game.flagField(this.x, this.y);
