@@ -3,23 +3,28 @@
     "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <head>
     <title>Deterministic Minesweeper</title>
   </head>
   <style>
     body {
         margin: 0;
+        touch-action: manipulation;
     }
     div.app {
         text-align: center;
+        touch-action: manipulation;
     }
     div.board {
         display: inline-block;
         text-align: left;
+        touch-action: manipulation;
     }
     div.row {
         display: table;
         line-height: 0px;
+        touch-action: manipulation;
     }
     div.field {
         display: table-cell;
@@ -29,27 +34,34 @@
         width: 10vmin;
         height: 10vmin;
         cursor: default;
+        touch-action: manipulation;
     }
     div.field svg {
         position: absolute;
         width: 100%;
         height: 100%;
+        touch-action: manipulation;
     }
 
     div.field svg.covered .light {
+        touch-action: manipulation;
         fill: #bfbcc0;
     }
     div.field svg.covered .dark {
+        touch-action: manipulation;
         fill: #837e86;
     }
     div.field svg.covered .medium {
+        touch-action: manipulation;
         fill: #a19da3;
     }
 
     div.field svg.open .light {
+        touch-action: manipulation;
         fill: #aba7ad;
     }
     div.field svg.open .border {
+        touch-action: manipulation;
         fill: none;
         stroke: #d2d0d3;
         stroke-width: 0.5;
@@ -57,11 +69,13 @@
     }
 
     div.field svg.bomb circle {
+        touch-action: manipulation;
         stroke: none;
         fill: black;
     }
 
     div.field svg.neighCount text {
+        touch-action: manipulation;
         font-weight: bold;
         font-size: 150%;
         font-family: Verdana, Helvetica, Arial, sans-serif;
@@ -70,6 +84,7 @@
     }
 
     .unselectable {
+        touch-action: manipulation;
         cursor: default;
         -webkit-user-select: none;
         -moz-user-select: none;
@@ -80,7 +95,6 @@
 
   <script type="text/x-template" id="appField">
     <div class="field"
-         v-on:touchstart.prevent="function(){}"
          v-on:click.prevent="open"
          v-on:contextmenu.prevent="flag">
         <svg v-if="covered()"
