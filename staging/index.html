@@ -9,6 +9,13 @@
   <style>
     body {
         margin: 0;
+        background-color: red;
+    }
+    div.app {
+        text-align: center;
+    }
+    div.board {
+        display: inline-block;
     }
     div.row {
         display: table;
@@ -17,6 +24,8 @@
     div.field {
         display: table-cell;
         position: relative;
+        margin: 0;
+        padding: 0;
         width: 10vmin;
         height: 10vmin;
         cursor: default;
@@ -67,16 +76,11 @@
         -ms-user-select: none;
         user-select: none;
     }
-
-    .board .row {
-    }
-    .board .cell {
-    }
   </style>
 
   <script type="text/x-template" id="appField">
     <div class="field"
-         v-on:click.prevent="open"
+         v-on:touchend.prevent="open"
          v-on:contextmenu.prevent="flag">
         <svg v-if="covered()"
              class="covered"
@@ -130,7 +134,7 @@
   </script>
 
   <body>
-    <div id="app" class="unselectable">
+    <div id="app" class="app unselectable">
       <app-board></app-board>
     </div>
   </body>
