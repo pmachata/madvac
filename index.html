@@ -3,12 +3,20 @@
     "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <head>
     <title>Deterministic Minesweeper</title>
   </head>
   <style>
     body {
         margin: 0;
+    }
+    div.app {
+        text-align: center;
+    }
+    div.board {
+        display: inline-block;
+        text-align: left;
     }
     div.row {
         display: table;
@@ -66,11 +74,6 @@
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
-    }
-
-    .board .row {
-    }
-    .board .cell {
     }
   </style>
 
@@ -130,7 +133,7 @@
   </script>
 
   <body>
-    <div id="app" class="unselectable">
+    <div id="app" class="app unselectable">
       <app-board></app-board>
     </div>
   </body>
