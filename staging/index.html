@@ -80,7 +80,8 @@
 
   <script type="text/x-template" id="appField">
     <div class="field"
-         v-on:touchstart.prevent="open"
+         v-on:touchstart.prevent="function(){}"
+         v-on:click.prevent="open"
          v-on:contextmenu.prevent="flag">
         <svg v-if="covered()"
              class="covered"
