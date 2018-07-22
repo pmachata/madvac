@@ -9,13 +9,13 @@
   <style>
     body {
         margin: 0;
-        background-color: red;
     }
     div.app {
         text-align: center;
     }
     div.board {
         display: inline-block;
+        text-align: left;
     }
     div.row {
         display: table;
@@ -80,7 +80,7 @@
 
   <script type="text/x-template" id="appField">
     <div class="field"
-         v-on:touchend.prevent="open"
+         v-on:touchstart.prevent="open"
          v-on:contextmenu.prevent="flag">
         <svg v-if="covered()"
              class="covered"
