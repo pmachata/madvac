@@ -2,6 +2,7 @@ function AsmMod(stdlib, foreign, heap) {
     "use asm";
 
     const MEM8 = new stdlib.Uint8Array(heap);
+    const MEM16 = new stdlib.Uint16Array(heap);
     const MEM32 = new stdlib.Uint32Array(heap);
     const log = foreign.log;
     const _throw = foreign._throw;
@@ -16,6 +17,9 @@ function AsmMod(stdlib, foreign, heap) {
 
     // 4 uint32's for 128 bit values.
     const bs_bufSize = 4;
+
+    // Whether this Cons tree node is red.
+    const c_f_red = 0x1;
 
     // To solve 128-element problems, the system will hold at least 128
     // constraints. Other constrains are derived from those by variable
@@ -437,17 +441,28 @@ function AsmMod(stdlib, foreign, heap) {
      *
      * struct {
      *   BitSet128 vs;    -- set of variables on LHS
+     *   BitSet128 bloom; -- bloom filter of vs's in the tree rooted here
      *   u8 sum;
-     *   u8 _padding[3];
+     *   u8 flags;        -- c_f_*.
+     *   u16 _padding;
+     *   u16 left;        -- index of left Cons (or 0xffff for NULL)
+     *   u16 right;       -- index of right Cons (or 0xffff for NULL)
      * };
      *
-     * Since Cons is just a bit set and sum, manipulation of "vs" is done
+     * Cons is modeled as a subclass of BitSet128. Manipulation of "vs" is done
      * directly through BitSet operations.
      **************************************************************************/
 
     function c_sizeOf() {
         var ret = 0;
-        ret = ((bs_sizeOf()|0) + 4)|0;
+        ret = (((bs_sizeOf()|0) << 1) + 8)|0;
+        return ret|0;
+    }
+
+    function c_bloomAddr(cons) {
+        cons = cons|0;
+        var ret = 0;
+        ret = (cons + (bs_sizeOf()|0))|0;
         return ret|0;
     }
 
@@ -455,19 +470,68 @@ function AsmMod(stdlib, foreign, heap) {
     function c_sumAddr(cons) {
         cons = cons|0;
         var ret = 0;
-        ret = (cons + (bs_sizeOf()|0))|0;
+        ret = (cons + ((bs_sizeOf()|0) << 1))|0;
         return ret|0;
     }
 
-    // Partially initialize a Cons structure--initialize just sum, assuming
-    // "cons" refers to a BitSet object that has already been initialized.
+    function c_flagsAddr(cons) {
+        cons = cons|0;
+        var ret = 0;
+        ret = (cons + ((bs_sizeOf()|0) << 1) + 1)|0;
+        return ret|0;
+    }
+
+    function c_leftAddr(cons) {
+        cons = cons|0;
+        var ret = 0;
+        ret = (cons + ((bs_sizeOf()|0) << 1) + 4)|0;
+        return ret|0;
+    }
+
+    function c_rightAddr(cons) {
+        cons = cons|0;
+        var ret = 0;
+        ret = (cons + ((bs_sizeOf()|0) << 1) + 6)|0;
+        return ret|0;
+    }
+
+    // Partially initialize a Cons structure--initialize just sum (and the
+    // service fields as well), assuming "cons" refers to a BitSet object that
+    // has already been initialized.
     function c_initSumOnly(cons, sum) {
         cons = cons|0;
         sum = sum|0;
-        var sumAddr = 0;
+        var addr = 0;
 
-        sumAddr = c_sumAddr(cons)|0;
-        MEM8[sumAddr] = sum;
+        bs_init(c_bloomAddr(cons)|0);
+
+        addr = c_sumAddr(cons)|0;
+        MEM8[addr] = sum;
+        addr = (addr + 1)|0;
+        MEM8[addr] = 0; // flags
+        addr = (addr + 3)|0; // skip over flags & padding
+        MEM32[addr >> 2] = 0xffffffff; // left = right = 0xffff
+    }
+
+    function c_copy(cons, other) {
+        cons = cons|0;
+        other = other|0;
+        var addr1 = 0;
+        var addr2 = 0;
+
+        bs_copy(cons, other);
+
+        addr1 = c_bloomAddr(cons)|0;
+        addr2 = c_bloomAddr(other)|0;
+        bs_copy(addr1, addr2);
+
+        addr1 = c_sumAddr(cons)|0;
+        addr2 = c_sumAddr(other)|0;
+        MEM32[addr1 >> 2] = MEM32[addr2 >> 2]; // sum & flags & padding
+
+        addr1 = (addr1 + 1)|0;
+        addr2 = (addr2 + 1)|0;
+        MEM32[addr1 >> 2] = MEM32[addr2 >> 2]; // left & right
     }
 
     function c_sum(cons) {
@@ -490,12 +554,64 @@ function AsmMod(stdlib, foreign, heap) {
         MEM8[sumAddr|0] = sum;
     }
 
-    function c_copy(cons, other) {
+    function c_flags(cons) {
         cons = cons|0;
-        other = other|0;
+        var flagsAddr = 0;
+        var ret = 0;
 
-        bs_copy(cons, other);
-        MEM8[c_sumAddr(cons)|0] = MEM8[c_sumAddr(other)|0];
+        flagsAddr = c_flagsAddr(cons)|0;
+        ret = MEM8[flagsAddr|0]|0;
+
+        return ret|0;
+    }
+
+    function c_flagsSet(cons, flags) {
+        cons = cons|0;
+        flags = flags|0;
+        var flagsAddr = 0;
+
+        flagsAddr = c_flagsAddr(cons)|0;
+        MEM8[flagsAddr|0] = flags;
+    }
+
+    function c_left(cons) {
+        cons = cons|0;
+        var leftAddr = 0;
+        var ret = 0;
+
+        leftAddr = c_leftAddr(cons)|0;
+        ret = MEM16[leftAddr >> 1]|0;
+
+        return ret|0;
+    }
+
+    function c_leftSet(cons, left) {
+        cons = cons|0;
+        left = left|0;
+        var leftAddr = 0;
+
+        leftAddr = c_leftAddr(cons)|0;
+        MEM16[leftAddr >> 1] = left;
+    }
+
+    function c_right(cons) {
+        cons = cons|0;
+        var rightAddr = 0;
+        var ret = 0;
+
+        rightAddr = c_rightAddr(cons)|0;
+        ret = MEM16[rightAddr >> 1]|0;
+
+        return ret|0;
+    }
+
+    function c_rightSet(cons, right) {
+        cons = cons|0;
+        right = right|0;
+        var rightAddr = 0;
+
+        rightAddr = c_rightAddr(cons)|0;
+        MEM16[rightAddr >> 1] = right;
     }
 
     /**************************************************************************
@@ -505,11 +621,13 @@ function AsmMod(stdlib, foreign, heap) {
      * struct {
      *   BitSet isKnown;   -- set of knowns (isKnown.has(x) iff x is known)
      *   BitSet knownVal;  -- values of knowns (knownVal.has(x) iff x is 1)
+     *   u16 root;         -- index of root Cons (or 0xffff if NULL).
+     *   u16 _padding;
      *   Cons conses[cap]; -- conses in order of addition
-     *   int order[cap];   -- cons indices ordered by Cons.vs
      *   int nconsOld;     -- number of already-processed conses
      *   int ncons;        -- total number of conses
      * };
+     *
      **************************************************************************/
 
     function csp_sizeOf() {
@@ -517,8 +635,8 @@ function AsmMod(stdlib, foreign, heap) {
 
         ret = ((bs_sizeOf()|0) +               // isKnown
                (bs_sizeOf()|0) +               // knownVal
+               4 +                             // root & padding
                (imul(c_sizeOf()|0, csp_cap)) + // conses
-               (imul(4, csp_cap)) +            // order
                4 +                             // nconsOld
                4)|0;                           // ncons
 
@@ -545,6 +663,21 @@ function AsmMod(stdlib, foreign, heap) {
         return addr|0;
     }
 
+    function csp_rootAddr(csp) {
+        csp = csp|0;
+        var b = 0;
+        var sz = 0;
+        var off = 0;
+        var addr = 0;
+
+        b = csp_knownValAddr(csp)|0;
+        sz = bs_sizeOf()|0;
+        off = 0;
+        addr = (b + sz + off)|0;
+
+        return addr|0;
+    }
+
     function csp_consAddr(csp, i) {
         csp = csp|0;
         i = i|0;
@@ -553,25 +686,9 @@ function AsmMod(stdlib, foreign, heap) {
         var off = 0;
         var addr = 0;
 
-        b = csp_knownValAddr(csp)|0;
-        sz = bs_sizeOf()|0;
+        b = csp_rootAddr(csp)|0;
+        sz = 4;
         off = imul(c_sizeOf()|0, i|0);
-        addr = (b + sz + off)|0;
-
-        return addr|0;
-    }
-
-    function csp_orderAddr(csp, i) {
-        csp = csp|0;
-        i = i|0;
-        var b = 0;
-        var sz = 0;
-        var off = 0;
-        var addr = 0;
-
-        b = csp_consAddr(csp, csp_cap)|0;
-        sz = 0; // csp_cap'th cons points just after the end of the array
-        off = imul(4, i);
         addr = (b + sz + off)|0;
 
         return addr|0;
@@ -584,8 +701,8 @@ function AsmMod(stdlib, foreign, heap) {
         var off = 0;
         var addr = 0;
 
-        b = csp_orderAddr(csp, csp_cap)|0;
-        sz = 0; // csp_cap'th order points just after the end of the array
+        b = csp_consAddr(csp, csp_cap)|0;
+        sz = 0; // csp_cap'th cons points just after the end of the array
         off = 0;
         addr = (b + sz + off)|0;
 
@@ -649,40 +766,23 @@ function AsmMod(stdlib, foreign, heap) {
         MEM32[addr >> 2] = n;
     }
 
-    function csp_order(csp, i) {
+    function csp_root(csp) {
         csp = csp|0;
-        i = i|0;
         var addr = 0;
         var ret = 0;
 
-        addr = csp_orderAddr(csp, i)|0;
-        ret = MEM32[addr >> 2]|0;
-
+        addr = csp_rootAddr(csp)|0;
+        ret = MEM16[addr >> 1]|0;
         return ret|0;
     }
 
-    function csp_orderSet(csp, i, id) {
+    function csp_rootSet(csp, root) {
         csp = csp|0;
-        i = i|0;
-        id = id|0;
+        root = root|0;
         var addr = 0;
 
-        addr = csp_orderAddr(csp, i)|0;
-        MEM32[addr >> 2] = id;
-    }
-
-    function csp_orderInsert(csp, i, id) {
-        csp = csp|0;
-        i = i|0;
-        id = id|0;
-        var j = 0;
-        var ord = 0;
-
-        for (j = csp_ncons(csp)|0; (j|0) > (i|0); j = (j - 1)|0) {
-            ord = csp_order(csp, (j - 1)|0)|0;
-            csp_orderSet(csp, j, ord);
-        }
-        csp_orderSet(csp, i, id);
+        addr = csp_rootAddr(csp)|0;
+        MEM16[addr >> 1] = root;
     }
 
     function csp_init(csp) {
@@ -696,76 +796,120 @@ function AsmMod(stdlib, foreign, heap) {
         knownVal = csp_knownValAddr(csp)|0;
         bs_init(knownVal);
 
+        csp_rootSet(csp, 0xffff);
         csp_nconsOldSet(csp, 0);
         csp_nconsSet(csp, 0);
     }
 
-    // Return position of cons within csp or -(pos+1) if there's no such cons.
-    // The position encoded in the negative return value shows the sort order of
-    // cons.
-    function csp_findCons(csp, cons) {
+    function csp_dump(csp, level, nodeI) {
+        csp = csp|0;
+        level = level|0;
+        nodeI = nodeI|0;
+
+        var node = 0;
+        var childI = 0;
+
+        log(0, 999, level|0, nodeI|0);
+
+        if ((nodeI|0) != 0xffff) {
+            node = csp_consAddr(csp, nodeI)|0;
+            childI = c_left(node)|0;
+            csp_dump(csp, (level + 1)|0, childI);
+            childI = c_right(node)|0;
+            csp_dump(csp, (level + 1)|0, childI);
+        }
+    }
+
+    // Pass in 0xffff for consI to not actually perform the insertion.
+    function __csp_insertCons(csp, cons, consI) {
         csp = csp|0;
         cons = cons|0;
-        var ncons = 0;
-        var a = 0;
-        var b = 0;
-        var mid = 0;
-        var candI = 0; // Candidate index.
-        var cand = 0;  // Candidate.
+        consI = consI|0;
+
+        var nodeI = 0;
+        var node = 0;
         var cmp = 0;
+        var childI = 0;
 
-        ncons = csp_ncons(csp)|0;
-        b = ncons;
-        while (((a|0) < (ncons|0)) & ((a|0) < (b|0))) {
-            mid = (a + b) >> 1;
-            candI = csp_order(csp, mid)|0;
-            cand = csp_consAddr(csp, candI)|0;
-            cmp = bs_cmp(cons, cand)|0;
-            if ((cmp|0) == 0) {
-                return mid|0;
+        nodeI = csp_root(csp)|0;
+        if ((nodeI|0) == 0xffff) {
+            if ((consI|0) != 0xffff) {
+                csp_rootSet(csp, consI);
             }
+        } else {
+            while (1) {
+                node = csp_consAddr(csp, nodeI)|0;
+                cmp = bs_cmp(cons, node)|0;
+                if ((cmp|0) == 0) {
+                    return 0;
+                }
 
-            if ((cmp|0) < 0) {
-                // cons < cand
-                b = mid;
-            } else {
-                // cons > cand
-                a = (mid + 1)|0;
+                if ((cmp|0) < 0) {
+                    childI = c_left(node)|0;
+                    if ((childI|0) == 0xffff) {
+                        if ((consI|0) != 0xffff) {
+                            c_leftSet(node, consI);
+                        }
+                        break;
+                    }
+                } else {
+                    childI = c_right(node)|0;
+                    if ((childI|0) == 0xffff) {
+                        if ((consI|0) != 0xffff) {
+                            c_rightSet(node, consI);
+                        }
+                        break;
+                    }
+                }
+                nodeI = childI;
             }
         }
 
-        return (0 - a - 1)|0;
+        if ((consI|0) != 0xffff) {
+            c_flagsSet(cons, (c_flags(cons)|0) | c_f_red);
+        }
+        return 1;
     }
 
     function csp_hasCons(csp, cons) {
         csp = csp|0;
         cons = cons|0;
-        var consI = 0;
-        var ret = 0;
 
-        consI = csp_findCons(csp, cons)|0;
-        ret = ((consI|0) >= 0)|0;
+        var ret = 0;
+        ret = !(__csp_insertCons(csp, cons, 0xffff)|0);
         return ret|0;
     }
 
     function csp_pushCons(csp, cons) {
         csp = csp|0;
         cons = cons|0;
-        var ni = 0;
-        var ncons = 0;
-        var no = 0;
 
-        no = csp_findCons(csp, cons)|0;
-        if ((no|0) >= 0) {
+        var nnI = 0;
+        var nn = 0;
+        var rc = 0;
+
+        //log(0, 1, 1, 1, 1);
+        // Add node into storage.
+        nnI = csp_ncons(csp)|0;
+        nn = csp_consAddr(csp, nnI)|0;
+        bs_copy(nn, cons);
+        c_initSumOnly(nn, c_sum(cons)|0);
+
+        // Insert it into the tree.
+        if (!(__csp_insertCons(csp, nn, nnI)|0)) {
+            //log(0, 1, 2, 3, 4);
+            // Already present.
+            // xxx fix unnecessary node addition above
             return 0;
         }
-        no = (-((no + 1)|0))|0;
 
-        ni = csp_ncons(csp)|0;
-        ncons = csp_consAddr(csp, ni)|0;
-        c_copy(ncons, cons);
-        csp_orderInsert(csp, no, ni);
-        csp_nconsSet(csp, (ni + 1)|0);
+        if ((nnI|0) == 0) {
+            // Root inserted.
+        }
+
+        csp_nconsSet(csp, (nnI + 1)|0);
+        //csp_dump(csp, 0, csp_root(csp)|0);
+        //log(0, 0, 0, 0, 0);
         return 1;
     }
 
@@ -1025,8 +1169,6 @@ function AsmMod(stdlib, foreign, heap) {
         csp_nconsSet: csp_nconsSet,
         csp_nconsOld: csp_nconsOld,
         csp_nconsOldSet: csp_nconsOldSet,
-        csp_order: csp_order,
-        csp_orderSet: csp_order,
         csp_init: csp_init,
         csp_hasCons: csp_hasCons,
         csp_pushCons: csp_pushCons,
