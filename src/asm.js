@@ -37,6 +37,8 @@ function AsmMod(stdlib, foreign, heap) {
     const LOG_ERR = 0;
     const LOG_INVALID_KEY = 1;
 
+    var x = 0;
+
     /**************************************************************************
      * BitSet -- a set for up to 128 boolean elements.
      *
@@ -444,7 +446,7 @@ function AsmMod(stdlib, foreign, heap) {
      *   BitSet128 bloom; -- bloom filter of vs's in the tree rooted here
      *   u8 sum;
      *   u8 flags;        -- c_f_*.
-     *   u16 _padding;
+     *   u16 parent;      -- index of parent Cons (of 0xffff for root)
      *   u16 left;        -- index of left Cons (or 0xffff for NULL)
      *   u16 right;       -- index of right Cons (or 0xffff for NULL)
      * };
@@ -481,6 +483,13 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
+    function c_parentAddr(cons) {
+        cons = cons|0;
+        var ret = 0;
+        ret = (cons + ((bs_sizeOf()|0) << 1) + 2)|0;
+        return ret|0;
+    }
+
     function c_leftAddr(cons) {
         cons = cons|0;
         var ret = 0;
@@ -509,7 +518,9 @@ function AsmMod(stdlib, foreign, heap) {
         MEM8[addr] = sum;
         addr = (addr + 1)|0;
         MEM8[addr] = 0; // flags
-        addr = (addr + 3)|0; // skip over flags & padding
+        addr = (addr + 1)|0;
+        MEM16[addr >> 1] = 0xffff; // parent = 0xffff
+        addr = (addr + 2)|0;
         MEM32[addr >> 2] = 0xffffffff; // left = right = 0xffff
     }
 
@@ -527,10 +538,10 @@ function AsmMod(stdlib, foreign, heap) {
 
         addr1 = c_sumAddr(cons)|0;
         addr2 = c_sumAddr(other)|0;
-        MEM32[addr1 >> 2] = MEM32[addr2 >> 2]; // sum & flags & padding
+        MEM32[addr1 >> 2] = MEM32[addr2 >> 2]; // sum & flags & parent
 
-        addr1 = (addr1 + 1)|0;
-        addr2 = (addr2 + 1)|0;
+        addr1 = (addr1 + 4)|0;
+        addr2 = (addr2 + 4)|0;
         MEM32[addr1 >> 2] = MEM32[addr2 >> 2]; // left & right
     }
 
@@ -574,6 +585,26 @@ function AsmMod(stdlib, foreign, heap) {
         MEM8[flagsAddr|0] = flags;
     }
 
+    function c_parent(cons) {
+        cons = cons|0;
+        var parentAddr = 0;
+        var ret = 0;
+
+        parentAddr = c_parentAddr(cons)|0;
+        ret = MEM16[parentAddr >> 1]|0;
+
+        return ret|0;
+    }
+
+    function c_parentSet(cons, parent) {
+        cons = cons|0;
+        parent = parent|0;
+        var parentAddr = 0;
+
+        parentAddr = c_parentAddr(cons)|0;
+        MEM16[parentAddr >> 1] = parent;
+    }
+
     function c_left(cons) {
         cons = cons|0;
         var leftAddr = 0;
@@ -612,6 +643,43 @@ function AsmMod(stdlib, foreign, heap) {
 
         rightAddr = c_rightAddr(cons)|0;
         MEM16[rightAddr >> 1] = right;
+    }
+
+    function c_markRed(cons) {
+        cons = cons|0;
+
+        var flags = 0;
+        flags = c_flags(cons)|0;
+        flags = flags | c_f_red;
+        c_flagsSet(cons, flags);
+    }
+
+    function c_isRed(cons) {
+        cons = cons|0;
+
+        var flags = 0;
+        var ret = 0;
+        if ((c_flags(cons)|0) & c_f_red) {
+            ret = 1;
+        }
+        return ret|0;
+    }
+
+    function c_markBlack(cons) {
+        cons = cons|0;
+
+        var flags = 0;
+        flags = c_flags(cons)|0;
+        flags = flags & ~c_f_red;
+        c_flagsSet(cons, flags);
+    }
+
+    function c_isBlack(cons) {
+        cons = cons|0;
+
+        var ret = 0;
+        ret = !(c_isRed(cons)|0);
+        return ret|0;
     }
 
     /**************************************************************************
@@ -813,6 +881,7 @@ function AsmMod(stdlib, foreign, heap) {
 
         if ((nodeI|0) != 0xffff) {
             node = csp_consAddr(csp, nodeI)|0;
+            showBitSet(c_bloomAddr(node)|0);
             childI = c_left(node)|0;
             csp_dump(csp, (level + 1)|0, childI);
             childI = c_right(node)|0;
@@ -866,7 +935,15 @@ function AsmMod(stdlib, foreign, heap) {
         }
 
         if ((consI|0) != 0xffff) {
-            c_flagsSet(cons, (c_flags(cons)|0) | c_f_red);
+            c_markRed(cons);
+            c_parentSet(cons, nodeI);
+
+            nodeI = consI;
+            while ((nodeI|0) != 0xffff) {
+                node = csp_consAddr(csp, nodeI)|0;
+                bs_addAll(c_bloomAddr(node)|0, cons);
+                nodeI = csp_parentI(csp, nodeI)|0;
+            }
         }
         return 1;
     }
@@ -878,6 +955,146 @@ function AsmMod(stdlib, foreign, heap) {
         var ret = 0;
         ret = !(__csp_insertCons(csp, cons, 0xffff)|0);
         return ret|0;
+    }
+
+    function csp_parentI(csp, consI) {
+        csp = csp|0;
+        consI = consI|0;
+
+        var cons = 0;
+        var nodeI = 0;
+
+        cons = csp_consAddr(csp, consI)|0;
+        nodeI = c_parent(cons)|0;
+        return nodeI|0;
+    }
+
+    function csp_gparentI(csp, consI) {
+        csp = csp|0;
+        consI = consI|0;
+
+        var parentI = 0;
+        var gparentI = 0xffff;
+
+        parentI = csp_parentI(csp, consI)|0;
+        if ((parentI|0) != 0xffff) {
+            gparentI = csp_parentI(csp, parentI)|0;
+        }
+        return gparentI|0;
+    }
+
+    function csp_siblingI(csp, consI) {
+        csp = csp|0;
+        consI = consI|0;
+
+        var parentI = 0;
+        var parent = 0;
+        var leftI = 0;
+        var siblingI = 0;
+
+        parentI = csp_parentI(csp, consI)|0;
+        if ((parentI|0) == 0xffff) {
+            return 0xffff;
+        }
+
+        parent = csp_consAddr(csp, parentI)|0;
+        leftI = c_left(parent)|0;
+        if ((consI|0) == (leftI|0)) {
+            siblingI = c_right(parent)|0;
+        } else {
+            siblingI = leftI;
+        }
+
+        return siblingI|0;
+    }
+
+    function csp_uncleI(csp, consI) {
+        csp = csp|0;
+        consI = consI|0;
+
+        var parentI = 0;
+        var siblingI = 0;
+
+        parentI = csp_parentI(csp, consI)|0;
+        if ((parentI|0) == 0xffff) {
+            return 0xffff;
+        }
+
+        siblingI = csp_siblingI(csp, parentI)|0;
+        return siblingI|0;
+    }
+
+    function csp_rotateLeftI(csp, consI) {
+        csp = csp|0;
+        consI = consI|0;
+
+        var cons = 0;
+        var nnewI = 0;
+        var nnew = 0;
+
+        cons = csp_consAddr(csp, consI)|0;
+        nnewI = c_right(cons)|0;
+        nnew = csp_consAddr(csp, nnewI)|0;
+        c_rightSet(nnew, c_left(nnew)|0);
+        c_leftSet(nnew, consI);
+        c_parentSet(nnew, c_parent(cons)|0);
+        // xxx update cons->parent->left or ...->right
+    }
+
+    function __csp_repairTree(csp, consI) {
+        csp = csp|0;
+        consI = consI|0;
+
+        var cons = 0;
+        var parentI = 0;
+        var parent = 0;
+        var gparentI = 0;
+        var gparent = 0;
+        var uncleI = 0;
+        var uncle = 0;
+
+        do {
+            cons = csp_consAddr(csp, consI)|0;
+            parentI = csp_parentI(csp, consI)|0;
+            if ((parentI|0) == 0xffff) {
+                // Root is always black.
+                c_markBlack(cons);
+                break;
+            }
+
+            parent = csp_consAddr(csp, parentI)|0;
+            if (c_isBlack(parent)|0) {
+                // Parent is black. Nothing to do.
+                break;
+            }
+
+            uncleI = csp_uncleI(csp, consI)|0;
+            if ((uncleI|0) == 0xffff) {
+                break;
+                // The code out there generally doesn't check for uncle
+                // NULLness, but guard this case. Currently this throws because
+                // we don't maintain RB tree properties, hence the break above.
+                _throw(0, 1111, 2222, 3333, 4444);
+            }
+            uncle = csp_consAddr(csp, uncleI)|0;
+
+            gparentI = csp_gparentI(csp, consI)|0;
+            gparent = csp_consAddr(csp, gparentI)|0;
+
+            if (c_isRed(uncle)|0) {
+                // Parent is red, uncle is red.
+                c_markBlack(parent);
+                c_markBlack(uncle);
+                c_markRed(gparent);
+
+                // Recurse
+                consI = gparentI;
+                continue;
+            }
+
+            // Parent is red, uncle is black.
+            // xxx
+        } while (0);
     }
 
     function csp_pushCons(csp, cons) {
@@ -903,10 +1120,7 @@ function AsmMod(stdlib, foreign, heap) {
             return 0;
         }
 
-        if ((nnI|0) == 0) {
-            // Root inserted.
-        }
-
+        __csp_repairTree(csp, nnI);
         csp_nconsSet(csp, (nnI + 1)|0);
         //csp_dump(csp, 0, csp_root(csp)|0);
         //log(0, 0, 0, 0, 0);
@@ -1027,6 +1241,60 @@ function AsmMod(stdlib, foreign, heap) {
                 ret = __csp_deduceCoupled(csp, cons2, cons1, common)|0;
         }
 
+        x = (x + 1)|0;
+
+        return ret|0;
+    }
+
+    function csp_deduceCoupledRec(csp, cons1, common, ncons, nodeI) {
+        csp = csp|0;
+        cons1 = cons1|0;
+        common = common|0;
+        ncons = ncons|0; // xxx drop
+        nodeI = nodeI|0;
+
+        var ret = 0;
+        var j = 0;
+        var cons2 = 0;
+        var deduced = 0;
+        var node = 0;
+        var bloom = 0;
+
+        if ((nodeI|0) == 0xffff) {
+            return 0;
+        }
+
+        node = csp_consAddr(csp, nodeI)|0;
+        bloom = c_bloomAddr(node)|0;
+        if (bs_hasAny(bloom, cons1)|0) {
+            deduced = csp_deduceCoupled(csp, cons1, node, common)|0;
+            if ((deduced|0) == 2) {
+                ret = 2;
+            }
+
+            deduced = csp_deduceCoupledRec(csp, cons1, common, ncons,
+                                           c_left(node)|0)|0;
+            if ((deduced|0) == 2) {
+                ret = 2;
+            }
+
+            deduced = csp_deduceCoupledRec(csp, cons1, common, ncons,
+                                           c_right(node)|0)|0;
+            if ((deduced|0) == 2) {
+                ret = 2;
+            }
+        }
+
+        /*
+        for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
+            cons2 = csp_consAddr(csp, j)|0;
+            deduced = csp_deduceCoupled(csp, cons1, cons2, common)|0;
+            if ((deduced|0) == 2) {
+                ret = 2;
+            }
+        }
+        */
+
         return ret|0;
     }
 
@@ -1047,6 +1315,7 @@ function AsmMod(stdlib, foreign, heap) {
         var tmpBs = 0;
         var isKnownAddr = 0;
         var deduced = 0;
+        var rootI = 0;
 
         isKnownAddr = csp_isKnownAddr(csp)|0;
 
@@ -1074,13 +1343,15 @@ function AsmMod(stdlib, foreign, heap) {
                     if (csp_substKnowns(csp, cons2, tmpCons, tmpBs)|0) {
                         progress = 1;
                     }
+                }
 
-                    for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
-                        cons = csp_consAddr(csp, i)|0;
-                        deduced = csp_deduceCoupled(csp, cons, cons2, tmpBs)|0;
-                        if ((deduced|0) == 2) {
-                            progress = 1;
-                        }
+                rootI = csp_root(csp)|0;
+                for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
+                    cons = csp_consAddr(csp, i)|0;
+                    deduced = csp_deduceCoupledRec(csp, cons, tmpBs,
+                                                   ncons, rootI)|0;
+                    if ((deduced|0) == 2) {
+                        progress = 1;
                     }
                 }
 
@@ -1139,6 +1410,13 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
+    function getx() {
+        var a = 0;
+
+        a = x;
+        return a|0;
+    }
+
     return {
         bs_sizeOf: bs_sizeOf,
         bs_init: bs_init,
@@ -1176,6 +1454,8 @@ function AsmMod(stdlib, foreign, heap) {
         csp_knownsSize: csp_knownsSize,
         csp_isKnown: csp_isKnown,
         csp_known: csp_known,
+
+        x: getx,
     };
 };
 
