@@ -3,7 +3,7 @@ import { detPlay } from './det.js';
 
 function assertPlayable(what, board, x0, y0) {
     var playable = detPlay(board, x0, y0);
-    assert.isOk(playable);
+    assert.isOk(playable, what + " should be playable");
     for (var field of board.allFields()) {
         if (field.hasMine) {
             assert.isOk(field.flagged,
