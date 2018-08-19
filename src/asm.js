@@ -437,13 +437,47 @@ function AsmMod(stdlib, foreign, heap) {
         return 1;
     }
 
+    // Compute a bloom byte from bset word with given index.
+    function bs_bloomByte(bset, wordIdx) {
+        bset = bset|0;
+        wordIdx = wordIdx|0;
+
+        var j = 0;
+        var bloom = 0;
+
+        bset = (bset + (wordIdx << 2))|0;
+        for (; (j|0) < 4; j = (j + 1)|0) {
+            bloom = bloom | MEM8[(bset + j)|0];
+        }
+
+        return bloom|0;
+    }
+
+    function bs_bloom(bset) {
+        bset = bset|0;
+        var bloom = 0;
+
+        var a = 0;
+        var b = 0;
+        var c = 0;
+        var d = 0;
+
+        a = bs_bloomByte(bset, 0)|0;
+        b = bs_bloomByte(bset, 1)|0;
+        c = bs_bloomByte(bset, 2)|0;
+        d = bs_bloomByte(bset, 3)|0;
+
+        bloom = (a << 24) | (b << 16) | (c << 8) | d;
+        return bloom|0;
+    }
+
     /**************************************************************************
      * Cons -- a constraint in a CSP problem
      * A constraint is an equation x0 + x1 + ... + xn = sum.
      *
      * struct {
      *   BitSet128 vs;    -- set of variables on LHS
-     *   BitSet128 bloom; -- bloom filter of vs's in the tree rooted here
+     *   u32 bloom;       -- bloom filter of vs's in the tree rooted here
      *   u8 sum;
      *   u8 flags;        -- c_f_*.
      *   u16 parent;      -- index of parent Cons (of 0xffff for root)
@@ -472,35 +506,35 @@ function AsmMod(stdlib, foreign, heap) {
     function c_sumAddr(cons) {
         cons = cons|0;
         var ret = 0;
-        ret = (cons + ((bs_sizeOf()|0) << 1))|0;
+        ret = (cons + (bs_sizeOf()|0) + 4)|0;
         return ret|0;
     }
 
     function c_flagsAddr(cons) {
         cons = cons|0;
         var ret = 0;
-        ret = (cons + ((bs_sizeOf()|0) << 1) + 1)|0;
+        ret = (cons + (bs_sizeOf()|0) + 5)|0;
         return ret|0;
     }
 
     function c_parentAddr(cons) {
         cons = cons|0;
         var ret = 0;
-        ret = (cons + ((bs_sizeOf()|0) << 1) + 2)|0;
+        ret = (cons + (bs_sizeOf()|0) + 6)|0;
         return ret|0;
     }
 
     function c_leftAddr(cons) {
         cons = cons|0;
         var ret = 0;
-        ret = (cons + ((bs_sizeOf()|0) << 1) + 4)|0;
+        ret = (cons + (bs_sizeOf()|0) + 8)|0;
         return ret|0;
     }
 
     function c_rightAddr(cons) {
         cons = cons|0;
         var ret = 0;
-        ret = (cons + ((bs_sizeOf()|0) << 1) + 6)|0;
+        ret = (cons + (bs_sizeOf()|0) + 10)|0;
         return ret|0;
     }
 
@@ -512,9 +546,9 @@ function AsmMod(stdlib, foreign, heap) {
         sum = sum|0;
         var addr = 0;
 
-        bs_init(c_bloomAddr(cons)|0);
-
-        addr = c_sumAddr(cons)|0;
+        addr = c_bloomAddr(cons)|0;
+        MEM32[addr >> 2] = 0; // bloom
+        addr = (addr + 4)|0;
         MEM8[addr] = sum;
         addr = (addr + 1)|0;
         MEM8[addr] = 0; // flags
@@ -534,7 +568,7 @@ function AsmMod(stdlib, foreign, heap) {
 
         addr1 = c_bloomAddr(cons)|0;
         addr2 = c_bloomAddr(other)|0;
-        bs_copy(addr1, addr2);
+        MEM32[addr1 >> 2] = MEM32[addr2 >> 2]; // bloom
 
         addr1 = c_sumAddr(cons)|0;
         addr2 = c_sumAddr(other)|0;
@@ -543,6 +577,32 @@ function AsmMod(stdlib, foreign, heap) {
         addr1 = (addr1 + 4)|0;
         addr2 = (addr2 + 4)|0;
         MEM32[addr1 >> 2] = MEM32[addr2 >> 2]; // left & right
+    }
+
+    function c_bloomAdd(cons, bloom) {
+        cons = cons|0;
+        bloom = bloom|0;
+
+        var addr = 0;
+        var orig = 0;
+
+        addr = c_bloomAddr(cons)|0;
+        orig = MEM32[addr >> 2]|0;
+        MEM32[addr >> 2] = orig | bloom;
+    }
+
+    function c_bloomMatches(cons, bloom) {
+        cons = cons|0;
+        bloom = bloom|0;
+
+        var addr = 0;
+        var ret = 0;
+
+        addr = c_bloomAddr(cons)|0;
+        if (MEM32[addr >> 2] & bloom) {
+            ret = 1;
+        }
+        return ret|0;
     }
 
     function c_sum(cons) {
@@ -881,7 +941,6 @@ function AsmMod(stdlib, foreign, heap) {
 
         if ((nodeI|0) != 0xffff) {
             node = csp_consAddr(csp, nodeI)|0;
-            showBitSet(c_bloomAddr(node)|0);
             childI = c_left(node)|0;
             csp_dump(csp, (level + 1)|0, childI);
             childI = c_right(node)|0;
@@ -899,6 +958,7 @@ function AsmMod(stdlib, foreign, heap) {
         var node = 0;
         var cmp = 0;
         var childI = 0;
+        var bloom = 0;
 
         nodeI = csp_root(csp)|0;
         if ((nodeI|0) == 0xffff) {
@@ -938,10 +998,11 @@ function AsmMod(stdlib, foreign, heap) {
             c_markRed(cons);
             c_parentSet(cons, nodeI);
 
+            bloom = bs_bloom(cons)|0;
             nodeI = consI;
             while ((nodeI|0) != 0xffff) {
                 node = csp_consAddr(csp, nodeI)|0;
-                bs_addAll(c_bloomAddr(node)|0, cons);
+                c_bloomAdd(node, bloom);
                 nodeI = csp_parentI(csp, nodeI)|0;
             }
         }
@@ -1246,9 +1307,10 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
-    function csp_deduceCoupledRec(csp, cons1, common, ncons, nodeI) {
+    function csp_deduceCoupledRec(csp, cons1, bloom1, common, ncons, nodeI) {
         csp = csp|0;
         cons1 = cons1|0;
+        bloom1 = bloom1|0;
         common = common|0;
         ncons = ncons|0; // xxx drop
         nodeI = nodeI|0;
@@ -1265,20 +1327,19 @@ function AsmMod(stdlib, foreign, heap) {
         }
 
         node = csp_consAddr(csp, nodeI)|0;
-        bloom = c_bloomAddr(node)|0;
-        if (bs_hasAny(bloom, cons1)|0) {
+        if (c_bloomMatches(node, bloom1)|0) {
             deduced = csp_deduceCoupled(csp, cons1, node, common)|0;
             if ((deduced|0) == 2) {
                 ret = 2;
             }
 
-            deduced = csp_deduceCoupledRec(csp, cons1, common, ncons,
+            deduced = csp_deduceCoupledRec(csp, cons1, bloom1, common, ncons,
                                            c_left(node)|0)|0;
             if ((deduced|0) == 2) {
                 ret = 2;
             }
 
-            deduced = csp_deduceCoupledRec(csp, cons1, common, ncons,
+            deduced = csp_deduceCoupledRec(csp, cons1, bloom1, common, ncons,
                                            c_right(node)|0)|0;
             if ((deduced|0) == 2) {
                 ret = 2;
@@ -1316,6 +1377,7 @@ function AsmMod(stdlib, foreign, heap) {
         var isKnownAddr = 0;
         var deduced = 0;
         var rootI = 0;
+        var bloom = 0;
 
         isKnownAddr = csp_isKnownAddr(csp)|0;
 
@@ -1348,7 +1410,8 @@ function AsmMod(stdlib, foreign, heap) {
                 rootI = csp_root(csp)|0;
                 for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
                     cons = csp_consAddr(csp, i)|0;
-                    deduced = csp_deduceCoupledRec(csp, cons, tmpBs,
+                    bloom = bs_bloom(cons)|0;
+                    deduced = csp_deduceCoupledRec(csp, cons, bloom, tmpBs,
                                                    ncons, rootI)|0;
                     if ((deduced|0) == 2) {
                         progress = 1;
