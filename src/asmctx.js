@@ -97,8 +97,13 @@ function dumpConses(csp) {
 }
 
 function dumpOrder(csp) {
-    for (let i = 0; i < asm.csp_ncons(csp); ++i) {
-        console.log(i + " => " + asm.csp_order(csp, i));
+    for (let g = 0; g < 5; ++g) {
+        console.log("group " + g);
+        for (let i = 0; i < asm.csp_norder(csp, g); ++i) {
+            let ord = asm.csp_order(csp, g, i);
+            let cons = asm.csp_consAddr(csp, ord);
+            console.log("  " + i + " => " + ord + ": " + cons_toString(cons));
+        }
     }
 }
 

@@ -2,12 +2,15 @@ function AsmMod(stdlib, foreign, heap) {
     "use asm";
 
     const MEM8 = new stdlib.Uint8Array(heap);
+    const MEM16 = new stdlib.Uint16Array(heap);
     const MEM32 = new stdlib.Uint32Array(heap);
     const log = foreign.log;
     const _throw = foreign._throw;
     const showCons = foreign.showCons;
     const showBitSet = foreign.showBitSet;
     const showKnown = foreign.showKnown;
+    const dumpConses = foreign.dumpConses;
+    const dumpOrder = foreign.dumpOrder;
     const enter = foreign.enter;
     const leave = foreign.leave;
     const allocaBitSet = foreign.allocaBitSet;
@@ -28,7 +31,8 @@ function AsmMod(stdlib, foreign, heap) {
     // (i.e. 150-ish for a 100-variable game). Give a much larger margin of 8x
     // to allow for broader neighborhoods, a number-of-mines equation, and to
     // cover for potential pathological cases.
-    const csp_cap = 1024;
+    // N.B. actual buffer size is 4x cap.
+    const csp_cap = 256;
 
     const LOG_ERR = 0;
     const LOG_INVALID_KEY = 1;
@@ -237,15 +241,44 @@ function AsmMod(stdlib, foreign, heap) {
         }
     }
 
+    function __bs_removeAllG(bset, other, g) {
+        bset = bset|0;
+        other = other|0;
+        g = g|0;
+
+        var addr1 = 0;
+        var addr2 = 0;
+        var off = 0;
+        var ret = 0;
+        var v1 = 0;
+        var v2 = 0;
+
+        off = ((g - 1)|0) << 2;
+        addr1 = (bset + off)|0;
+        addr2 = (other + off)|0;
+
+        v1 = MEM32[addr1 >> 2]|0;
+        v2 = MEM32[addr2 >> 2]|0;
+
+        v1 = v1 & ~v2;
+        MEM32[addr1 >> 2] = v1;
+        if (v1) {
+            ret = 1;
+        }
+
+        return ret|0;
+    }
+
     function __bs_removeAll(bset, other) {
         bset = bset|0;
         other = other|0;
+
         var addr1 = 0;
         var addr2 = 0;
         var i = 0;
+        var ret = 0;
         var v1 = 0;
         var v2 = 0;
-        var ret = 0;
 
         addr1 = bset;
         addr2 = other;
@@ -275,15 +308,44 @@ function AsmMod(stdlib, foreign, heap) {
         __bs_removeAll(bset, other)|0;
     }
 
+    function __bs_retainAllG(bset, other, g) {
+        bset = bset|0;
+        other = other|0;
+        g = g|0;
+
+        var addr1 = 0;
+        var addr2 = 0;
+        var ret = 0;
+        var off = 0;
+        var v1 = 0;
+        var v2 = 0;
+
+        off = ((g - 1)|0) << 2;
+        addr1 = (bset + off)|0;
+        addr2 = (other + off)|0;
+
+        v1 = MEM32[addr1 >> 2]|0;
+        v2 = MEM32[addr2 >> 2]|0;
+
+        v1 = v1 & v2;
+        MEM32[addr1 >> 2] = v1;
+        if (v1) {
+            ret = 1;
+        }
+
+        return ret|0;
+    }
+
     function __bs_retainAll(bset, other) {
         bset = bset|0;
         other = other|0;
+
         var addr1 = 0;
         var addr2 = 0;
         var i = 0;
+        var ret = 0;
         var v1 = 0;
         var v2 = 0;
-        var ret = 0;
 
         addr1 = bset;
         addr2 = other;
@@ -366,11 +428,29 @@ function AsmMod(stdlib, foreign, heap) {
     }
 
     // Return number of elements in the set.
+    function bs_sizeG(bset, g) {
+        bset = bset|0;
+        g = g|0;
+
+        var addr = 0;
+        var off = 0;
+        var size = 0;
+        var v = 0;
+
+        off = ((g - 1)|0) << 2;
+        addr = (bset + off)|0;
+        v = MEM32[addr >> 2]|0;
+        size = countBits(v)|0;
+
+        return size|0;
+    }
+
     function bs_size(bset) {
         bset = bset|0;
-        var size = 0;
+
         var addr = 0;
         var i = 0;
+        var size = 0;
         var v = 0;
 
         addr = bset;
@@ -498,27 +578,61 @@ function AsmMod(stdlib, foreign, heap) {
         MEM8[c_sumAddr(cons)|0] = MEM8[c_sumAddr(other)|0];
     }
 
+    function c_fingerprint(cons) {
+        cons = cons|0;
+
+        var a = 0;
+        var b = 0;
+        var c = 0;
+        var d = 0;
+        var ret = 0;
+
+        a = ((MEM32[cons >> 2]|0) != 0)|0;
+        cons = (cons + 4)|0;
+        b = ((MEM32[cons >> 2]|0) != 0)|0;
+        cons = (cons + 4)|0;
+        c = ((MEM32[cons >> 2]|0) != 0)|0;
+        cons = (cons + 4)|0;
+        d = ((MEM32[cons >> 2]|0) != 0)|0;
+
+        ret = (a << 0) | (b << 1) | (c << 2) | (d << 3);
+        return ret|0;
+    }
+
     /**************************************************************************
      * CSP -- a constraint-satisfaction problem
      * A CSP is a set of constraints, each a Cons.
      *
      * struct {
-     *   BitSet isKnown;   -- set of knowns (isKnown.has(x) iff x is known)
-     *   BitSet knownVal;  -- values of knowns (knownVal.has(x) iff x is 1)
-     *   Cons conses[cap]; -- conses in order of addition
-     *   int order[cap];   -- cons indices ordered by Cons.vs
-     *   int nconsOld;     -- number of already-processed conses
-     *   int ncons;        -- total number of conses
+     *   BitSet isKnown;    -- set of knowns (isKnown.has(x) iff x is known)
+     *   BitSet knownVal;   -- values of knowns (knownVal.has(x) iff x is 1)
+     *   Cons conses[4*cap];-- conses in order of addition
+     *   u16 order[5][cap]; -- groups of cons indices ordered by Cons.vs
+     *                         order[X], X>0 is for conses whose fingerprint
+     *                                       is 1<<(X-1)
+     *                           where fingerprint is a four-bit field where
+     *                                 each bit corresponds to one word in "vs".
+     *                                 Bits are one if the corresponding word is
+     *                                 non-0.
+     *                         order[0] is for conses with other fingerprints
+     *   u16 norder[5];     -- number of order items in each group
+     *   u16 _padding;
+     *   int nconsOld;      -- number of already-processed conses
+     *   int ncons;         -- total number of conses
      * };
      **************************************************************************/
 
     function csp_sizeOf() {
         var ret = 0;
+        var fullcap = 0;
 
+        fullcap = csp_cap << 2;
         ret = ((bs_sizeOf()|0) +               // isKnown
                (bs_sizeOf()|0) +               // knownVal
-               (imul(c_sizeOf()|0, csp_cap)) + // conses
-               (imul(4, csp_cap)) +            // order
+               (imul(c_sizeOf()|0, fullcap)) + // conses
+               (imul(10, csp_cap)) +           // order, u16*5
+               10 +                            // norder[5]
+               2 +                             // _padding
                4 +                             // nconsOld
                4)|0;                           // ncons
 
@@ -527,11 +641,13 @@ function AsmMod(stdlib, foreign, heap) {
 
     function csp_isKnownAddr(csp) {
         csp = csp|0;
+
         return csp|0;
     }
 
     function csp_knownValAddr(csp) {
         csp = csp|0;
+
         var b = 0;
         var sz = 0;
         var off = 0;
@@ -548,6 +664,7 @@ function AsmMod(stdlib, foreign, heap) {
     function csp_consAddr(csp, i) {
         csp = csp|0;
         i = i|0;
+
         var b = 0;
         var sz = 0;
         var off = 0;
@@ -561,17 +678,39 @@ function AsmMod(stdlib, foreign, heap) {
         return addr|0;
     }
 
-    function csp_orderAddr(csp, i) {
+    function csp_orderAddr(csp, g, i) {
         csp = csp|0;
+        g = g|0;
         i = i|0;
+
+        var fullcap = 0;
         var b = 0;
         var sz = 0;
         var off = 0;
         var addr = 0;
 
-        b = csp_consAddr(csp, csp_cap)|0;
-        sz = 0; // csp_cap'th cons points just after the end of the array
-        off = imul(4, i);
+        fullcap = csp_cap << 2;
+        b = csp_consAddr(csp, fullcap)|0;
+        sz = 0; // fullcap'th cons points just after the end of the array
+        off = (imul(csp_cap, g) + i) << 1;
+        addr = (b + sz + off)|0;
+
+        return addr|0;
+    }
+
+    function csp_norderAddr(csp, g) {
+        csp = csp|0;
+        g = g|0;
+
+        var b = 0;
+        var sz = 0;
+        var off = 0;
+        var addr = 0;
+
+        b = csp_orderAddr(csp, 4, csp_cap)|0; // One beyond last item in last
+                                              // group.
+        sz = 0;
+        off = g << 1;
         addr = (b + sz + off)|0;
 
         return addr|0;
@@ -579,13 +718,14 @@ function AsmMod(stdlib, foreign, heap) {
 
     function csp_nconsOldAddr(csp) {
         csp = csp|0;
+
         var b = 0;
         var sz = 0;
         var off = 0;
         var addr = 0;
 
-        b = csp_orderAddr(csp, csp_cap)|0;
-        sz = 0; // csp_cap'th order points just after the end of the array
+        b = csp_norderAddr(csp, 5)|0; // One beyond last group.
+        sz = 2; // Padding.
         off = 0;
         addr = (b + sz + off)|0;
 
@@ -594,6 +734,7 @@ function AsmMod(stdlib, foreign, heap) {
 
     function csp_nconsAddr(csp) {
         csp = csp|0;
+
         var b = 0;
         var sz = 0;
         var off = 0;
@@ -609,6 +750,7 @@ function AsmMod(stdlib, foreign, heap) {
 
     function csp_nconsOld(csp) {
         csp = csp|0;
+
         var addr = 0;
         var ret = 0;
 
@@ -621,6 +763,7 @@ function AsmMod(stdlib, foreign, heap) {
     function csp_nconsOldSet(csp, n) {
         csp = csp|0;
         n = n|0;
+
         var addr = 0;
         var ret = 0;
 
@@ -630,6 +773,7 @@ function AsmMod(stdlib, foreign, heap) {
 
     function csp_ncons(csp) {
         csp = csp|0;
+
         var addr = 0;
         var ret = 0;
 
@@ -642,59 +786,98 @@ function AsmMod(stdlib, foreign, heap) {
     function csp_nconsSet(csp, n) {
         csp = csp|0;
         n = n|0;
+
         var addr = 0;
-        var ret = 0;
 
         addr = csp_nconsAddr(csp)|0;
         MEM32[addr >> 2] = n;
     }
 
-    function csp_order(csp, i) {
+    function csp_order(csp, g, i) {
         csp = csp|0;
+        g = g|0;
         i = i|0;
+
         var addr = 0;
         var ret = 0;
 
-        addr = csp_orderAddr(csp, i)|0;
-        ret = MEM32[addr >> 2]|0;
+        addr = csp_orderAddr(csp, g, i)|0;
+        ret = MEM16[addr >> 1]|0;
 
         return ret|0;
     }
 
-    function csp_orderSet(csp, i, id) {
+    function csp_orderSet(csp, g, i, id) {
         csp = csp|0;
+        g = g|0;
         i = i|0;
         id = id|0;
+
         var addr = 0;
 
-        addr = csp_orderAddr(csp, i)|0;
-        MEM32[addr >> 2] = id;
+        addr = csp_orderAddr(csp, g, i)|0;
+        MEM16[addr >> 1] = id;
     }
 
-    function csp_orderInsert(csp, i, id) {
+    function csp_orderInsert(csp, g, i, id) {
         csp = csp|0;
+        g = g|0;
         i = i|0;
         id = id|0;
+
         var j = 0;
         var ord = 0;
+        var norder = 0;
 
-        for (j = csp_ncons(csp)|0; (j|0) > (i|0); j = (j - 1)|0) {
-            ord = csp_order(csp, (j - 1)|0)|0;
-            csp_orderSet(csp, j, ord);
+        norder = csp_norder(csp, g)|0;
+        for (j = norder; (j|0) > (i|0); j = (j - 1)|0) {
+            ord = csp_order(csp, g, (j - 1)|0)|0;
+            csp_orderSet(csp, g, j, ord);
         }
-        csp_orderSet(csp, i, id);
+        csp_orderSet(csp, g, i, id);
+        csp_norderSet(csp, g, (norder + 1)|0);
+    }
+
+    function csp_norder(csp, g) {
+        csp = csp|0;
+        g = g|0;
+
+        var addr = 0;
+        var ret = 0;
+
+        addr = csp_norderAddr(csp, g)|0;
+        ret = MEM16[addr >> 1]|0;
+
+        return ret|0;
+    }
+
+    function csp_norderSet(csp, g, n) {
+        csp = csp|0;
+        g = g|0;
+        n = n|0;
+
+        var addr = 0;
+
+        addr = csp_norderAddr(csp, g)|0;
+        MEM16[addr >> 1] = n;
     }
 
     function csp_init(csp) {
         csp = csp|0;
+
         var isKnown = 0;
         var knownVal = 0;
+        var g = 0;
 
         isKnown = csp_isKnownAddr(csp)|0;
         bs_init(isKnown);
 
         knownVal = csp_knownValAddr(csp)|0;
         bs_init(knownVal);
+
+        for (; (g|0) < 5; g = (g + 1)|0) {
+            csp_norderSet(csp, g, 0);
+        }
 
         csp_nconsOldSet(csp, 0);
         csp_nconsSet(csp, 0);
@@ -703,22 +886,24 @@ function AsmMod(stdlib, foreign, heap) {
     // Return position of cons within csp or -(pos+1) if there's no such cons.
     // The position encoded in the negative return value shows the sort order of
     // cons.
-    function csp_findCons(csp, cons) {
+    function csp_findCons(csp, g, cons) {
         csp = csp|0;
+        g = g|0;
         cons = cons|0;
-        var ncons = 0;
+
         var a = 0;
         var b = 0;
-        var mid = 0;
-        var candI = 0; // Candidate index.
         var cand = 0;  // Candidate.
+        var candI = 0; // Candidate index.
         var cmp = 0;
+        var mid = 0;
+        var norder = 0;
 
-        ncons = csp_ncons(csp)|0;
-        b = ncons;
-        while (((a|0) < (ncons|0)) & ((a|0) < (b|0))) {
+        norder = csp_norder(csp, g)|0;
+        b = norder;
+        while (((a|0) < (norder|0)) & ((a|0) < (b|0))) {
             mid = (a + b) >> 1;
-            candI = csp_order(csp, mid)|0;
+            candI = csp_order(csp, g, mid)|0;
             cand = csp_consAddr(csp, candI)|0;
             cmp = bs_cmp(cons, cand)|0;
             if ((cmp|0) == 0) {
@@ -737,13 +922,37 @@ function AsmMod(stdlib, foreign, heap) {
         return (0 - a - 1)|0;
     }
 
+    function csp_consGroup(cons) {
+        cons = cons|0;
+
+        var fp = 0;
+        var ret = 0;
+
+        fp = c_fingerprint(cons)|0;
+
+        if ((fp|0) == 1) {
+            ret = 1;
+        } else if ((fp|0) == 2) {
+            ret = 2;
+        } else if ((fp|0) == 4) {
+            ret = 3;
+        } else if ((fp|0) == 8) {
+            ret = 4;
+        }
+
+        return ret|0;
+    }
+
     function csp_hasCons(csp, cons) {
         csp = csp|0;
         cons = cons|0;
+
         var consI = 0;
         var ret = 0;
+        var g = 0;
 
-        consI = csp_findCons(csp, cons)|0;
+        g = csp_consGroup(cons)|0;
+        consI = csp_findCons(csp, g, cons)|0;
         ret = ((consI|0) >= 0)|0;
         return ret|0;
     }
@@ -751,20 +960,23 @@ function AsmMod(stdlib, foreign, heap) {
     function csp_pushCons(csp, cons) {
         csp = csp|0;
         cons = cons|0;
-        var ni = 0;
-        var ncons = 0;
-        var no = 0;
 
-        no = csp_findCons(csp, cons)|0;
+        var ni = 0;
+        var newCons = 0;
+        var no = 0;
+        var g = 0;
+
+        g = csp_consGroup(cons)|0;
+        no = csp_findCons(csp, g, cons)|0;
         if ((no|0) >= 0) {
             return 0;
         }
         no = (-((no + 1)|0))|0;
 
         ni = csp_ncons(csp)|0;
-        ncons = csp_consAddr(csp, ni)|0;
-        c_copy(ncons, cons);
-        csp_orderInsert(csp, no, ni);
+        newCons = csp_consAddr(csp, ni)|0;
+        c_copy(newCons, cons);
+        csp_orderInsert(csp, g, no, ni);
         csp_nconsSet(csp, (ni + 1)|0);
         return 1;
     }
@@ -774,6 +986,7 @@ function AsmMod(stdlib, foreign, heap) {
         cons = cons|0;
         ncons = ncons|0;
         onesBs = onesBs|0;
+
         var sum = 0;
         var ret = 0;
 
@@ -829,11 +1042,54 @@ function AsmMod(stdlib, foreign, heap) {
         }
     }
 
+    // For two constraints of the following shape:
+    //  1) A0 + A1 + ... + Ak + B0 + B1 + ... + Bm = p + k
+    //  2) B0 + B1 + ... + Bm + C0 + C1 + ... + Cn = p
+    // Deduce that:
+    //  A0 = A1 = ... = Ak = 1
+    //  C0 = C1 = ... = Cn = 0
+
+    function __csp_deduceCoupledG(csp, cons1, cons2, g, common) {
+        csp = csp|0;
+        cons1 = cons1|0;
+        cons2 = cons2|0;
+        g = g|0;
+        common = common|0;
+
+        var diffCons = 0;
+        var k = 0;
+        var p = 0;
+        var ret = 0;
+
+        k = ((bs_sizeG(cons1, g)|0) - (bs_sizeG(common, g)|0))|0;
+        p = c_sum(cons2)|0;
+        if ((c_sum(cons1)|0) == ((p + k)|0)) {
+            diffCons = allocaCons()|0;
+
+            ret = 1;
+
+            c_copy(diffCons, cons1);
+            if (__bs_removeAllG(diffCons, common, g)|0) {
+                csp_deduceVs(csp, diffCons, 1);
+                ret = 2;
+            }
+
+            c_copy(diffCons, cons2);
+            if (__bs_removeAllG(diffCons, common, g)|0) {
+                csp_deduceVs(csp, diffCons, 0);
+                ret = 2;
+            }
+        }
+
+        return ret|0;
+    }
+
     function __csp_deduceCoupled(csp, cons1, cons2, common) {
         csp = csp|0;
         cons1 = cons1|0;
         cons2 = cons2|0;
         common = common|0;
+
         var diffCons = 0;
         var k = 0;
         var p = 0;
@@ -862,19 +1118,32 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
+    function csp_deduceCoupledG(csp, cons1, cons2, g, common) {
+        csp = csp|0;
+        cons1 = cons1|0;
+        cons2 = cons2|0;
+        g = g|0;
+        common = common|0;
+
+        var ret = 0;
+
+        bs_copy(common, cons1);
+        if (__bs_retainAllG(common, cons2, g)|0) {
+            ret = __csp_deduceCoupledG(csp, cons1, cons2, g, common)|0;
+            if (!ret)
+                ret = __csp_deduceCoupledG(csp, cons2, cons1, g, common)|0;
+        }
+
+        return ret|0;
+    }
+
     function csp_deduceCoupled(csp, cons1, cons2, common) {
         csp = csp|0;
         cons1 = cons1|0;
         cons2 = cons2|0;
         common = common|0;
-        var ret = 0;
 
-	// For two constraints of the following shape:
-	//  1) A0 + A1 + ... + Ak + B0 + B1 + ... + Bm = p + k
-	//  2) B0 + B1 + ... + Bm + C0 + C1 + ... + Cn = p
-	// Deduce that:
-	//  A0 = A1 = ... = Ak = 1
-	//  C0 = C1 = ... = Cn = 0
+        var ret = 0;
 
         bs_copy(common, cons1);
         if (__bs_retainAll(common, cons2)|0) {
@@ -889,20 +1158,24 @@ function AsmMod(stdlib, foreign, heap) {
     function csp_simplify(csp, knownsArray) {
         csp = csp|0;
         knownsArray = knownsArray|0;
-        var progress = 0;
+
         var cons = 0;
         var cons2 = 0;
+        var deduced = 0;
+        var g = 0;
+        var i = 0;
+        var isKnownAddr = 0;
+        var j = 0;
+        var k = 0;
         var ncons = 0;
         var nconsOld = 0;
-        var i = 0;
-        var j = 0;
-        var oldKnowns = 0;
         var newKnowns = 0;
+        var norder = 0;
+        var oldKnowns = 0;
+        var progress = 0;
         var ret = 0;
-        var tmpCons = 0;
         var tmpBs = 0;
-        var isKnownAddr = 0;
-        var deduced = 0;
+        var tmpCons = 0;
 
         isKnownAddr = csp_isKnownAddr(csp)|0;
 
@@ -925,17 +1198,42 @@ function AsmMod(stdlib, foreign, heap) {
                     csp_deduceSimple(csp, cons);
                 }
 
+                // xxx only process those conses whose set-words are touched by
+                // newly-added knowns.
                 for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
                     cons2 = csp_consAddr(csp, j)|0;
                     if (csp_substKnowns(csp, cons2, tmpCons, tmpBs)|0) {
                         progress = 1;
                     }
+                }
 
-                    for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
-                        cons = csp_consAddr(csp, i)|0;
-                        deduced = csp_deduceCoupled(csp, cons, cons2, tmpBs)|0;
-                        if ((deduced|0) == 2) {
-                            progress = 1;
+                for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
+                    cons = csp_consAddr(csp, i)|0;
+
+                    // Figure out which group this cons maps to. If it's 0, we
+                    // need to go through all the conses, otherwise it's the
+                    // group ID to use.
+                    //g = csp_consGroup(cons)|0;
+
+                    if (!g) {
+                        for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
+                            cons2 = csp_consAddr(csp, j)|0;
+                            deduced = csp_deduceCoupled(csp, cons, cons2,
+                                                        tmpBs)|0;
+                            if ((deduced|0) == 2) {
+                                progress = 1;
+                            }
+                        }
+                    } else {
+                        norder = csp_norder(csp, g)|0;
+                        for (k = 0; (k|0) < (norder|0); k = (k + 1)|0) {
+                            j = csp_order(csp, g, k)|0;
+                            cons2 = csp_consAddr(csp, j)|0;
+                            deduced = csp_deduceCoupled(csp, cons, cons2,
+                                                         tmpBs)|0;
+                            if ((deduced|0) == 2) {
+                                progress = 1;
+                            }
                         }
                     }
                 }
@@ -1025,6 +1323,7 @@ function AsmMod(stdlib, foreign, heap) {
         csp_nconsSet: csp_nconsSet,
         csp_nconsOld: csp_nconsOld,
         csp_nconsOldSet: csp_nconsOldSet,
+        csp_norder: csp_norder,
         csp_order: csp_order,
         csp_orderSet: csp_order,
         csp_init: csp_init,
