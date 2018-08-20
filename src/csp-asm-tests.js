@@ -33,7 +33,8 @@ function csp_new() {
     asm.bs_add(cons, 2);
     asm.bs_add(cons, 3);
     asm.c_initSumOnly(cons, 10);
-    asm.csp_pushCons(csp, cons);
+    assert.strictEqual(asm.csp_nconsOld(csp), 0, "0: CSP has 0 oldConses");
+    assert.isOk(asm.csp_pushCons(csp, cons), "1: pushed cons");
     assert.strictEqual(asm.csp_ncons(csp), 1, "1: CSP has 1 conses");
     assert.strictEqual(asm.csp_nconsOld(csp), 0, "1: CSP has 0 oldConses");
     // Insert x1+x2+x3=10 once more, this shouldn't do anything.
