@@ -36,6 +36,8 @@ function AsmMod(stdlib, foreign, heap) {
 
     const LOG_ERR = 0;
     const LOG_INVALID_KEY = 1;
+    const LOG_ORDER_CAP_OVFL = 3;
+    const LOG_CONS_CAP_OVFL = 4;
 
     /**************************************************************************
      * BitSet -- a set for up to 128 boolean elements.
@@ -830,6 +832,10 @@ function AsmMod(stdlib, foreign, heap) {
         var norder = 0;
 
         norder = csp_norder(csp, g)|0;
+        if ((norder|0) >= (csp_cap|0)) {
+            _throw(LOG_ORDER_CAP_OVFL|0);
+        }
+
         for (j = norder; (j|0) > (i|0); j = (j - 1)|0) {
             ord = csp_order(csp, g, (j - 1)|0)|0;
             csp_orderSet(csp, g, j, ord);
@@ -961,6 +967,7 @@ function AsmMod(stdlib, foreign, heap) {
         csp = csp|0;
         cons = cons|0;
 
+        var fullcap = 0;
         var ni = 0;
         var newCons = 0;
         var no = 0;
@@ -974,6 +981,10 @@ function AsmMod(stdlib, foreign, heap) {
         no = (-((no + 1)|0))|0;
 
         ni = csp_ncons(csp)|0;
+        fullcap = csp_cap << 2;
+        if ((ni|0) >= (fullcap|0)) {
+            _throw(LOG_CONS_CAP_OVFL|0);
+        }
         newCons = csp_consAddr(csp, ni)|0;
         c_copy(newCons, cons);
         csp_orderInsert(csp, g, no, ni);

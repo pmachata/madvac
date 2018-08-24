@@ -13,6 +13,8 @@ function format(str) {
 
 var messages = {
     1: "Invalid key: {0}",
+    3: "Order capacity overflow",
+    4: "Constraint capacity overflow",
 };
 
 function getStr(code) {
