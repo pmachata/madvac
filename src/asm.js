@@ -1249,10 +1249,10 @@ function AsmMod(stdlib, foreign, heap) {
                     }
                 }
 
+                csp_nconsOldSet(csp, ncons);
                 if (!progress) {
                     break;
                 }
-                csp_nconsOldSet(csp, ncons);
             }
 
             if (knownsArray) {
