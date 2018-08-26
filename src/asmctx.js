@@ -14,6 +14,7 @@ function format(str) {
 var messages = {
     0: "{0} {1} {2} {3}",
     1: "Invalid key: {0}",
+    2: "---",
     3: "Order capacity overflow",
     4: "Constraint capacity overflow",
 };
