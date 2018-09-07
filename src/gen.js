@@ -4,11 +4,11 @@ function randint(max) {
     return Math.floor(Math.random() * Math.floor(max));
 }
 
-function randCoord(w, h) {
+function randomRandCoord(w, h) {
     return [randint(w), randint(h)];
 }
 
-function randEmptyField(board) {
+function randEmptyField(board, randCoord) {
     while (true) {
         var [x, y] = randCoord(board.width, board.height);
         var field = board.field(x, y);
@@ -18,13 +18,17 @@ function randEmptyField(board) {
     }
 }
 
-function genGame(board, want_nmines, x0, y0) {
+function genGame(board, want_nmines, x0, y0, randCoord) {
     var origObserver = board.setFieldObserver(null);
+
+    if (randCoord === undefined) {
+        randCoord = randomRandCoord;
+    }
 
     var mines = [];
     var tally = [0];
     while (mines.length < want_nmines) {
-        var field = randEmptyField(board);
+        var field = randEmptyField(board, randCoord);
 
         field.hasMine = true;
         mines.push(field);
