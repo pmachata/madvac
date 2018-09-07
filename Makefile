@@ -7,4 +7,4 @@ prod:
 test-%: all
 	d8 dist/$*-tests.bundle.js
 
-test: test-det test-set128-asm test-cons-asm test-csp-asm
+test: test-det test-set128-asm test-cons-asm test-csp-asm test-gen
