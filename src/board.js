@@ -1,30 +1,54 @@
 import { Field } from './field.js';
 
 class Board {
+    coordToId(x, y) {
+        if (this.width <= 10 && this.height <= 10) {
+            // Divide to quadrants of 5x5 fields. Attach fields from each
+            // quadrant to a different bset word. Thus the number of sets that
+            // take more than one word in minimized.
+
+            let hx = (x / 5)|0;
+            let hy = (y / 5)|0;
+            let q = hy * 2 + hx;
+
+            let dx = x - 5 * hx;
+            let dy = y - 5 * hy;
+            let i = dy * 5 + dx;
+
+            return q * 32 + i;
+        } else {
+            return y * this.width + x;
+        }
+    }
+
     constructor(w, h) {
+        this.width = w;
+        this.height = h;
+
         var fields = [];
         var allFields = [];
-        var i = 0;
+        var fieldIndex = [];
         for (var y = 0; y < h; ++y) {
-            var row = [];
+            let row = [];
             for (var x = 0; x < w; ++x) {
-                var field = new Field(this, x, y, i++);
+                let id = this.coordToId(x, y);
+                let field = new Field(this, x, y, id);
                 row.push(field);
                 allFields.push(field);
+                fieldIndex[id] = field;
             }
             fields.push(row);
         }
 
-        this.width = w;
-        this.height = h;
         this.fields = fields;
         this._allFields = allFields;
+        this._fieldIndex = fieldIndex;
         this.fieldObserver = null;
     }
 
     field(x, y) {
         if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-            var id = y * this.width + x;
+            let id = this.coordToId(x, y);
             return this.fieldById(id);
         } else {
             return null;
@@ -32,11 +56,7 @@ class Board {
     }
 
     fieldById(id) {
-        if (id >= 0 && id < this._allFields.length) {
-            return this._allFields[id];
-        } else {
-            return null;
-        }
+        return this._fieldIndex[id] || null;
     }
 
     allFields() {
