@@ -119,6 +119,10 @@ function leave() {
     return heap.leave();
 }
 
+function alloca(size) {
+    return heap.alloca(size);
+}
+
 function allocaBitSet() {
     return heap.allocaBitSet();
 }
@@ -138,6 +142,7 @@ var logger = {
     dumpOrder: dumpOrder,
     enter: enter,
     leave: leave,
+    alloca: alloca,
     allocaCons: allocaCons,
     allocaBitSet: allocaBitSet,
 };

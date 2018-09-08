@@ -13,6 +13,7 @@ function AsmMod(stdlib, foreign, heap) {
     const dumpOrder = foreign.dumpOrder;
     const enter = foreign.enter;
     const leave = foreign.leave;
+    const alloca = foreign.alloca;
     const allocaBitSet = foreign.allocaBitSet;
     const allocaCons = foreign.allocaCons;
     const imul = stdlib.Math.imul;
@@ -608,35 +609,41 @@ function AsmMod(stdlib, foreign, heap) {
      * struct {
      *   BitSet isKnown;    -- set of knowns (isKnown.has(x) iff x is known)
      *   BitSet knownVal;   -- values of knowns (knownVal.has(x) iff x is 1)
-     *   Cons conses[4*cap];-- conses in order of addition
-     *   u16 order[5][cap]; -- groups of cons indices ordered by Cons.vs
-     *                         order[X], X>0 is for conses whose fingerprint
+     *   Cons conses[5][cap];-- conses in order of addition
+     *                         conses[X], X>0 is for conses whose fingerprint
      *                                       is 1<<(X-1)
+     *                         conses[0] is for conses with other fingerprints
      *                           where fingerprint is a four-bit field where
      *                                 each bit corresponds to one word in "vs".
      *                                 Bits are one if the corresponding word is
      *                                 non-0.
-     *                         order[0] is for conses with other fingerprints
-     *   u16 norder[5];     -- number of order items in each group
-     *   u16 _padding;
-     *   int nconsOld;      -- number of already-processed conses
-     *   int ncons;         -- total number of conses
+     *   u16 order[5][cap]; -- groups of cons indices ordered by Cons.vs
+     *   u16 nconsOld[5];   -- number of already-processed conses in each group
+     *   u16 ncons[5];      -- number of conses in each group
      * };
      **************************************************************************/
+
+    function csp_fullcap() {
+        var fullcap = 0;
+
+        // csp_cap * 5
+        fullcap = csp_cap << 2;
+        fullcap = (fullcap + csp_cap)|0;
+
+        return fullcap|0;
+    }
 
     function csp_sizeOf() {
         var ret = 0;
         var fullcap = 0;
 
-        fullcap = csp_cap << 2;
+        fullcap = csp_fullcap()|0;
         ret = ((bs_sizeOf()|0) +               // isKnown
                (bs_sizeOf()|0) +               // knownVal
-               (imul(c_sizeOf()|0, fullcap)) + // conses
-               (imul(10, csp_cap)) +           // order, u16*5
-               10 +                            // norder[5]
-               2 +                             // _padding
-               4 +                             // nconsOld
-               4)|0;                           // ncons
+               (imul(c_sizeOf()|0, fullcap)) + // Cons conses[5][cap]
+               (imul(10, csp_cap)) +           // u16 order[5][cap]
+               10 +                            // nconsOld[5]
+               10)|0;                          // ncons[5]
 
         return ret|0;
     }
@@ -663,8 +670,9 @@ function AsmMod(stdlib, foreign, heap) {
         return addr|0;
     }
 
-    function csp_consAddr(csp, i) {
+    function csp_consAddr(csp, g, i) {
         csp = csp|0;
+        g = g|0;
         i = i|0;
 
         var b = 0;
@@ -674,7 +682,7 @@ function AsmMod(stdlib, foreign, heap) {
 
         b = csp_knownValAddr(csp)|0;
         sz = bs_sizeOf()|0;
-        off = imul(c_sizeOf()|0, i|0);
+        off = imul((imul(csp_cap, g) + i)|0, c_sizeOf()|0);
         addr = (b + sz + off)|0;
 
         return addr|0;
@@ -685,22 +693,20 @@ function AsmMod(stdlib, foreign, heap) {
         g = g|0;
         i = i|0;
 
-        var fullcap = 0;
         var b = 0;
         var sz = 0;
         var off = 0;
         var addr = 0;
 
-        fullcap = csp_cap << 2;
-        b = csp_consAddr(csp, fullcap)|0;
-        sz = 0; // fullcap'th cons points just after the end of the array
+        b = csp_consAddr(csp, 5, 0)|0; // One beyond last item in last group.
+        sz = 0;
         off = (imul(csp_cap, g) + i) << 1;
         addr = (b + sz + off)|0;
 
         return addr|0;
     }
 
-    function csp_norderAddr(csp, g) {
+    function csp_nconsOldAddr(csp, g) {
         csp = csp|0;
         g = g|0;
 
@@ -709,8 +715,7 @@ function AsmMod(stdlib, foreign, heap) {
         var off = 0;
         var addr = 0;
 
-        b = csp_orderAddr(csp, 4, csp_cap)|0; // One beyond last item in last
-                                              // group.
+        b = csp_orderAddr(csp, 5, 0)|0; // One beyond last item in last group.
         sz = 0;
         off = g << 1;
         addr = (b + sz + off)|0;
@@ -718,81 +723,83 @@ function AsmMod(stdlib, foreign, heap) {
         return addr|0;
     }
 
-    function csp_nconsOldAddr(csp) {
+    function csp_nconsAddr(csp, g) {
         csp = csp|0;
+        g = g|0;
 
         var b = 0;
         var sz = 0;
         var off = 0;
         var addr = 0;
 
-        b = csp_norderAddr(csp, 5)|0; // One beyond last group.
-        sz = 2; // Padding.
-        off = 0;
+        b = csp_nconsOldAddr(csp, 5)|0; // One beyond last group.
+        sz = 0;
+        off = g << 1;
         addr = (b + sz + off)|0;
 
         return addr|0;
     }
 
-    function csp_nconsAddr(csp) {
+    function csp_nconsOld(csp, g) {
         csp = csp|0;
-
-        var b = 0;
-        var sz = 0;
-        var off = 0;
-        var addr = 0;
-
-        b = csp_nconsOldAddr(csp)|0;
-        sz = 4;
-        off = 0;
-        addr = (b + sz + off)|0;
-
-        return addr|0;
-    }
-
-    function csp_nconsOld(csp) {
-        csp = csp|0;
+        g = g|0;
 
         var addr = 0;
         var ret = 0;
 
-        addr = csp_nconsOldAddr(csp)|0;
-        ret = MEM32[addr >> 2]|0;
+        addr = csp_nconsOldAddr(csp, g)|0;
+        ret = MEM16[addr >> 1]|0;
 
         return ret|0;
     }
 
-    function csp_nconsOldSet(csp, n) {
+    function csp_nconsOldSet(csp, g, n) {
         csp = csp|0;
+        g = g|0;
         n = n|0;
 
         var addr = 0;
         var ret = 0;
 
-        addr = csp_nconsOldAddr(csp)|0;
-        MEM32[addr >> 2] = n;
+        addr = csp_nconsOldAddr(csp, g)|0;
+        MEM16[addr >> 1] = n;
     }
 
-    function csp_ncons(csp) {
+    function csp_ncons(csp, g) {
         csp = csp|0;
+        g = g|0;
 
         var addr = 0;
         var ret = 0;
 
-        addr = csp_nconsAddr(csp)|0;
-        ret = MEM32[addr >> 2]|0;
+        addr = csp_nconsAddr(csp, g)|0;
+        ret = MEM16[addr >> 1]|0;
 
         return ret|0;
     }
 
-    function csp_nconsSet(csp, n) {
+    function csp_nconsTot(csp) {
         csp = csp|0;
+
+        var g = 0;
+        var tot = 0;
+
+        for (; (g|0) < 5; g = (g + 1)|0) {
+            tot = (tot + (csp_ncons(csp, g)|0))|0;
+        }
+
+        return tot|0;
+    }
+
+    function csp_nconsSet(csp, g, n) {
+        csp = csp|0;
+        g = g|0;
         n = n|0;
 
         var addr = 0;
 
-        addr = csp_nconsAddr(csp)|0;
-        MEM32[addr >> 2] = n;
+        addr = csp_nconsAddr(csp, g)|0;
+        MEM16[addr >> 1] = n;
     }
 
     function csp_order(csp, g, i) {
@@ -801,12 +808,12 @@ function AsmMod(stdlib, foreign, heap) {
         i = i|0;
 
         var addr = 0;
-        var ret = 0;
+        var id = 0;
 
         addr = csp_orderAddr(csp, g, i)|0;
-        ret = MEM16[addr >> 1]|0;
+        id = MEM16[addr >> 1]|0;
 
-        return ret|0;
+        return id|0;
     }
 
     function csp_orderSet(csp, g, i, id) {
@@ -828,44 +835,23 @@ function AsmMod(stdlib, foreign, heap) {
         id = id|0;
 
         var j = 0;
+        var k = 0;
         var ord = 0;
-        var norder = 0;
+        var ncons = 0;
 
-        norder = csp_norder(csp, g)|0;
-        if ((norder|0) >= (csp_cap|0)) {
+        ncons = csp_ncons(csp, g)|0;
+        if ((ncons|0) >= (csp_cap|0)) {
             _throw(LOG_ORDER_CAP_OVFL|0);
         }
 
-        for (j = norder; (j|0) > (i|0); j = (j - 1)|0) {
-            ord = csp_order(csp, g, (j - 1)|0)|0;
-            csp_orderSet(csp, g, j, ord);
+        for (j = ncons; (j|0) > (i|0); ) {
+            k = j;
+            j = (j - 1)|0;
+            ord = csp_order(csp, g, j)|0;
+            csp_orderSet(csp, g, k, ord);
         }
+
         csp_orderSet(csp, g, i, id);
-        csp_norderSet(csp, g, (norder + 1)|0);
-    }
-
-    function csp_norder(csp, g) {
-        csp = csp|0;
-        g = g|0;
-
-        var addr = 0;
-        var ret = 0;
-
-        addr = csp_norderAddr(csp, g)|0;
-        ret = MEM16[addr >> 1]|0;
-
-        return ret|0;
-    }
-
-    function csp_norderSet(csp, g, n) {
-        csp = csp|0;
-        g = g|0;
-        n = n|0;
-
-        var addr = 0;
-
-        addr = csp_norderAddr(csp, g)|0;
-        MEM16[addr >> 1] = n;
     }
 
     function csp_init(csp) {
@@ -881,12 +867,10 @@ function AsmMod(stdlib, foreign, heap) {
         knownVal = csp_knownValAddr(csp)|0;
         bs_init(knownVal);
 
-        for (; (g|0) < 5; g = (g + 1)|0) {
-            csp_norderSet(csp, g, 0);
+        for (g = 0; (g|0) < 5; g = (g + 1)|0) {
+            csp_nconsSet(csp, g, 0);
+            csp_nconsOldSet(csp, g, 0);
         }
-
-        csp_nconsOldSet(csp, 0);
-        csp_nconsSet(csp, 0);
     }
 
     // Return position of cons within csp or -(pos+1) if there's no such cons.
@@ -903,14 +887,14 @@ function AsmMod(stdlib, foreign, heap) {
         var candI = 0; // Candidate index.
         var cmp = 0;
         var mid = 0;
-        var norder = 0;
+        var ncons = 0;
 
-        norder = csp_norder(csp, g)|0;
-        b = norder;
-        while (((a|0) < (norder|0)) & ((a|0) < (b|0))) {
+        ncons = csp_ncons(csp, g)|0;
+        b = ncons;
+        while (((a|0) < (ncons|0)) & ((a|0) < (b|0))) {
             mid = (a + b) >> 1;
             candI = csp_order(csp, g, mid)|0;
-            cand = csp_consAddr(csp, candI)|0;
+            cand = csp_consAddr(csp, g, candI)|0;
             cmp = bs_cmp(cons, cand)|0;
             if ((cmp|0) == 0) {
                 return mid|0;
@@ -967,8 +951,7 @@ function AsmMod(stdlib, foreign, heap) {
         csp = csp|0;
         cons = cons|0;
 
-        var fullcap = 0;
-        var ni = 0;
+        var ncons = 0;
         var newCons = 0;
         var no = 0;
         var g = 0;
@@ -980,15 +963,14 @@ function AsmMod(stdlib, foreign, heap) {
         }
         no = (-((no + 1)|0))|0;
 
-        ni = csp_ncons(csp)|0;
-        fullcap = csp_cap << 2;
-        if ((ni|0) >= (fullcap|0)) {
+        ncons = csp_ncons(csp, g)|0;
+        if ((ncons|0) >= (csp_cap|0)) {
             _throw(LOG_CONS_CAP_OVFL|0);
         }
-        newCons = csp_consAddr(csp, ni)|0;
+        newCons = csp_consAddr(csp, g, ncons)|0;
         c_copy(newCons, cons);
-        csp_orderInsert(csp, g, no, ni);
-        csp_nconsSet(csp, (ni + 1)|0);
+        csp_orderInsert(csp, g, no, ncons);
+        csp_nconsSet(csp, g, (ncons + 1)|0);
         return 1;
     }
 
@@ -1163,6 +1145,48 @@ function AsmMod(stdlib, foreign, heap) {
                 ret = __csp_deduceCoupled(csp, cons2, cons1, common)|0;
         }
 
+        x = (x + 1)|0;
+        return ret|0;
+    }
+
+    // Test new conses in G1 against all conses in G2.
+    function csp_deduceCoupledBunch(csp, g1, g2, nconsOrig, tmpBs) {
+        csp = csp|0;
+        g1 = g1|0;
+        g2 = g2|0;
+        nconsOrig = nconsOrig|0;
+        tmpBs = tmpBs|0;
+
+        var ret = 0;
+        var deduced = 0;
+        var nconsOld = 0;
+        var addr = 0;
+        var i = 0;
+        var j = 0;
+        var ncons1 = 0;
+        var ncons2 = 0;
+        var cons1 = 0;
+        var cons2 = 0;
+
+        nconsOld = csp_nconsOld(csp, g1)|0;
+        addr = (nconsOrig + (g1 << 1))|0;
+        ncons1 = MEM16[addr >> 1]|0;
+        addr = (nconsOrig + (g2 << 1))|0;
+        ncons2 = MEM16[addr >> 1]|0;
+
+        for (i = nconsOld|0; (i|0) < (ncons1|0); i = (i + 1)|0) {
+            cons1 = csp_consAddr(csp, g1, i)|0;
+            for (j = 0; (j|0) < (ncons2|0); j = (j + 1)|0) {
+                cons2 = csp_consAddr(csp, g2, j)|0;
+                //log(0, g1|0, g2|0, i|0, j|0);
+                deduced = csp_deduceCoupled(csp, cons1, cons2,
+                                            tmpBs)|0;
+                if ((deduced|0) == 2) {
+                    ret = 2;
+                }
+            }
+        }
+
         return ret|0;
     }
 
@@ -1173,18 +1197,24 @@ function AsmMod(stdlib, foreign, heap) {
         var cons = 0;
         var cons2 = 0;
         var deduced = 0;
+        var dstAddr = 0;
         var g = 0;
         var i = 0;
         var isKnownAddr = 0;
         var j = 0;
         var k = 0;
         var ncons = 0;
+        var nconsAddr = 0;
         var nconsOld = 0;
+        var nconsOldAddr = 0;
+        var nconsOrig = 0;
         var newKnowns = 0;
         var norder = 0;
         var oldKnowns = 0;
         var progress = 0;
         var ret = 0;
+        var srcAddr = 0;
+        var srcAddr2 = 0;
         var tmpBs = 0;
         var tmpCons = 0;
 
@@ -1197,59 +1227,75 @@ function AsmMod(stdlib, foreign, heap) {
 
             tmpCons = allocaCons()|0;
             tmpBs = allocaBitSet()|0;
+            nconsOrig = alloca(10)|0; // 5*u16
+
+            nconsAddr = csp_nconsAddr(csp, 0)|0;
+            nconsOldAddr = csp_nconsOldAddr(csp, 0)|0;
 
             while (1) {
                 progress = 0;
 
-                ncons = csp_ncons(csp)|0;
-                nconsOld = csp_nconsOld(csp)|0;
+                srcAddr = nconsAddr;
+                dstAddr = nconsOrig;
+                for (g = 0; (g|0) < 5; g = (g + 1)|0) {
+                    MEM16[dstAddr >> 1] = MEM16[srcAddr >> 1]|0;
+                    srcAddr = (srcAddr + 2)|0;
+                    dstAddr = (dstAddr + 2)|0;
+                }
 
-                for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
-                    cons = csp_consAddr(csp, i)|0;
-                    csp_deduceSimple(csp, cons);
+                for (g = 0; (g|0) < 5; g = (g + 1)|0) {
+                    nconsOld = csp_nconsOld(csp, g)|0;
+                    srcAddr = (nconsOrig + (g << 1))|0;
+                    ncons = MEM16[srcAddr >> 1]|0;
+                    for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
+                        cons = csp_consAddr(csp, g, i)|0;
+                        csp_deduceSimple(csp, cons);
+                    }
                 }
 
                 // xxx only process those conses whose set-words are touched by
                 // newly-added knowns.
-                for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
-                    cons2 = csp_consAddr(csp, j)|0;
-                    if (csp_substKnowns(csp, cons2, tmpCons, tmpBs)|0) {
+                for (g = 0; (g|0) < 5; g = (g + 1)|0) {
+                    srcAddr = (nconsOrig + (g << 1))|0;
+                    ncons = MEM16[srcAddr >> 1]|0;
+                    for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
+                        cons2 = csp_consAddr(csp, g, j)|0;
+                        if (csp_substKnowns(csp, cons2, tmpCons, tmpBs)|0) {
+                            progress = 1;
+                        }
+                    }
+                }
+
+                for (g = 0; (g|0) < 5; g = (g + 1)|0) {
+                    deduced = csp_deduceCoupledBunch(csp, 0, g, nconsOrig,
+                                                     tmpBs)|0;
+                    if ((deduced|0) == 2) {
                         progress = 1;
                     }
                 }
 
-                for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
-                    cons = csp_consAddr(csp, i)|0;
+                for (g = 1; (g|0) < 5; g = (g + 1)|0) {
+                    deduced = csp_deduceCoupledBunch(csp, g, g, nconsOrig,
+                                                     tmpBs)|0;
+                    if ((deduced|0) == 2) {
+                        progress = 1;
+                    }
 
-                    // Figure out which group this cons maps to. If it's 0, we
-                    // need to go through all the conses, otherwise it's the
-                    // group ID to use.
-                    //g = csp_consGroup(cons)|0;
-
-                    if (!g) {
-                        for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
-                            cons2 = csp_consAddr(csp, j)|0;
-                            deduced = csp_deduceCoupled(csp, cons, cons2,
-                                                        tmpBs)|0;
-                            if ((deduced|0) == 2) {
-                                progress = 1;
-                            }
-                        }
-                    } else {
-                        norder = csp_norder(csp, g)|0;
-                        for (k = 0; (k|0) < (norder|0); k = (k + 1)|0) {
-                            j = csp_order(csp, g, k)|0;
-                            cons2 = csp_consAddr(csp, j)|0;
-                            deduced = csp_deduceCoupled(csp, cons, cons2,
-                                                         tmpBs)|0;
-                            if ((deduced|0) == 2) {
-                                progress = 1;
-                            }
-                        }
+                    deduced = csp_deduceCoupledBunch(csp, g, 0, nconsOrig,
+                                                     tmpBs)|0;
+                    if ((deduced|0) == 2) {
+                        progress = 1;
                     }
                 }
 
-                csp_nconsOldSet(csp, ncons);
+                srcAddr = nconsOrig;
+                dstAddr = nconsOldAddr;
+                for (g = 0; (g|0) < 5; g = (g + 1)|0) {
+                    MEM16[dstAddr >> 1] = MEM16[srcAddr >> 1]|0;
+                    srcAddr = (srcAddr + 2)|0;
+                    dstAddr = (dstAddr + 2)|0;
+                }
+
                 if (!progress) {
                     break;
                 }
@@ -1330,11 +1376,10 @@ function AsmMod(stdlib, foreign, heap) {
 
         csp_sizeOf: csp_sizeOf,
         csp_consAddr: csp_consAddr,
-        csp_ncons: csp_ncons,
+        csp_ncons: csp_nconsTot,
         csp_nconsSet: csp_nconsSet,
         csp_nconsOld: csp_nconsOld,
         csp_nconsOldSet: csp_nconsOldSet,
-        csp_norder: csp_norder,
         csp_order: csp_order,
         csp_orderSet: csp_order,
         csp_init: csp_init,
