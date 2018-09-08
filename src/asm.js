@@ -974,28 +974,28 @@ function AsmMod(stdlib, foreign, heap) {
         return 1;
     }
 
-    function csp_substKnowns(csp, cons, ncons, onesBs) {
+    function csp_substKnowns(csp, cons, newCons, onesBs) {
         csp = csp|0;
         cons = cons|0;
-        ncons = ncons|0;
+        newCons = newCons|0;
         onesBs = onesBs|0;
 
         var sum = 0;
         var ret = 0;
 
-        // ncons.vs should include the subset of cons.vs that is unknown.
-        bs_copy(ncons, cons);
+        // newCons.vs should include the subset of cons.vs that is unknown.
+        bs_copy(newCons, cons);
 
-        if (__bs_removeAll(ncons, csp_isKnownAddr(csp)|0)|0) {
+        if (__bs_removeAll(newCons, csp_isKnownAddr(csp)|0)|0) {
             // onesBs is subset of cons.vs that evaluates to 1.
             // This assumes that knownVal of unknown is 0.
             bs_copy(onesBs, cons);
             bs_retainAll(onesBs, csp_knownValAddr(csp)|0);
 
-            // Finish ncons initialization & push it.
+            // Finish newCons initialization & push it.
             sum = ((c_sum(cons)|0) - (bs_size(onesBs)|0))|0;
-            c_initSumOnly(ncons, sum);
-            ret = csp_pushCons(csp, ncons)|0;
+            c_initSumOnly(newCons, sum);
+            ret = csp_pushCons(csp, newCons)|0;
         }
 
         return ret|0;
