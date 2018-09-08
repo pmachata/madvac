@@ -1253,19 +1253,6 @@ function AsmMod(stdlib, foreign, heap) {
                     }
                 }
 
-                // xxx only process those conses whose set-words are touched by
-                // newly-added knowns.
-                for (g = 0; (g|0) < 5; g = (g + 1)|0) {
-                    srcAddr = (nconsOrig + (g << 1))|0;
-                    ncons = MEM16[srcAddr >> 1]|0;
-                    for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
-                        cons2 = csp_consAddr(csp, g, j)|0;
-                        if (csp_substKnowns(csp, cons2, tmpCons, tmpBs)|0) {
-                            progress = 1;
-                        }
-                    }
-                }
-
                 for (g = 0; (g|0) < 5; g = (g + 1)|0) {
                     deduced = csp_deduceCoupledBunch(csp, 0, g, nconsOrig,
                                                      tmpBs)|0;
@@ -1285,6 +1272,19 @@ function AsmMod(stdlib, foreign, heap) {
                                                      tmpBs)|0;
                     if ((deduced|0) == 2) {
                         progress = 1;
+                    }
+                }
+
+                // xxx only process those conses whose set-words are touched by
+                // newly-added knowns.
+                for (g = 0; (g|0) < 5; g = (g + 1)|0) {
+                    srcAddr = (nconsOrig + (g << 1))|0;
+                    ncons = MEM16[srcAddr >> 1]|0;
+                    for (j = 0; (j|0) < (ncons|0); j = (j + 1)|0) {
+                        cons2 = csp_consAddr(csp, g, j)|0;
+                        if (csp_substKnowns(csp, cons2, tmpCons, tmpBs)|0) {
+                            progress = 1;
+                        }
                     }
                 }
 
