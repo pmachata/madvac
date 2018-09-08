@@ -1275,8 +1275,6 @@ function AsmMod(stdlib, foreign, heap) {
                     }
                 }
 
-                // xxx only process those conses whose set-words are touched by
-                // newly-added knowns.
                 for (g = 0; (g|0) < 5; g = (g + 1)|0) {
                     srcAddr = (nconsOrig + (g << 1))|0;
                     ncons = MEM16[srcAddr >> 1]|0;
