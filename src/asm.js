@@ -244,34 +244,6 @@ function AsmMod(stdlib, foreign, heap) {
         }
     }
 
-    function __bs_removeAllG(bset, other, g) {
-        bset = bset|0;
-        other = other|0;
-        g = g|0;
-
-        var addr1 = 0;
-        var addr2 = 0;
-        var off = 0;
-        var ret = 0;
-        var v1 = 0;
-        var v2 = 0;
-
-        off = ((g - 1)|0) << 2;
-        addr1 = (bset + off)|0;
-        addr2 = (other + off)|0;
-
-        v1 = MEM32[addr1 >> 2]|0;
-        v2 = MEM32[addr2 >> 2]|0;
-
-        v1 = v1 & ~v2;
-        MEM32[addr1 >> 2] = v1;
-        if (v1) {
-            ret = 1;
-        }
-
-        return ret|0;
-    }
-
     function __bs_removeAll(bset, other) {
         bset = bset|0;
         other = other|0;
@@ -309,34 +281,6 @@ function AsmMod(stdlib, foreign, heap) {
         other = other|0;
 
         __bs_removeAll(bset, other)|0;
-    }
-
-    function __bs_retainAllG(bset, other, g) {
-        bset = bset|0;
-        other = other|0;
-        g = g|0;
-
-        var addr1 = 0;
-        var addr2 = 0;
-        var ret = 0;
-        var off = 0;
-        var v1 = 0;
-        var v2 = 0;
-
-        off = ((g - 1)|0) << 2;
-        addr1 = (bset + off)|0;
-        addr2 = (other + off)|0;
-
-        v1 = MEM32[addr1 >> 2]|0;
-        v2 = MEM32[addr2 >> 2]|0;
-
-        v1 = v1 & v2;
-        MEM32[addr1 >> 2] = v1;
-        if (v1) {
-            ret = 1;
-        }
-
-        return ret|0;
     }
 
     function __bs_retainAll(bset, other) {
@@ -431,23 +375,6 @@ function AsmMod(stdlib, foreign, heap) {
     }
 
     // Return number of elements in the set.
-    function bs_sizeG(bset, g) {
-        bset = bset|0;
-        g = g|0;
-
-        var addr = 0;
-        var off = 0;
-        var size = 0;
-        var v = 0;
-
-        off = ((g - 1)|0) << 2;
-        addr = (bset + off)|0;
-        v = MEM32[addr >> 2]|0;
-        size = countBits(v)|0;
-
-        return size|0;
-    }
-
     function bs_size(bset) {
         bset = bset|0;
 
@@ -1042,41 +969,6 @@ function AsmMod(stdlib, foreign, heap) {
     //  A0 = A1 = ... = Ak = 1
     //  C0 = C1 = ... = Cn = 0
 
-    function __csp_deduceCoupledG(csp, cons1, cons2, g, common) {
-        csp = csp|0;
-        cons1 = cons1|0;
-        cons2 = cons2|0;
-        g = g|0;
-        common = common|0;
-
-        var diffCons = 0;
-        var k = 0;
-        var p = 0;
-        var ret = 0;
-
-        k = ((bs_sizeG(cons1, g)|0) - (bs_sizeG(common, g)|0))|0;
-        p = c_sum(cons2)|0;
-        if ((c_sum(cons1)|0) == ((p + k)|0)) {
-            diffCons = allocaCons()|0;
-
-            ret = 1;
-
-            c_copy(diffCons, cons1);
-            if (__bs_removeAllG(diffCons, common, g)|0) {
-                csp_deduceVs(csp, diffCons, 1);
-                ret = 2;
-            }
-
-            c_copy(diffCons, cons2);
-            if (__bs_removeAllG(diffCons, common, g)|0) {
-                csp_deduceVs(csp, diffCons, 0);
-                ret = 2;
-            }
-        }
-
-        return ret|0;
-    }
-
     function __csp_deduceCoupled(csp, cons1, cons2, common) {
         csp = csp|0;
         cons1 = cons1|0;
@@ -1106,25 +998,6 @@ function AsmMod(stdlib, foreign, heap) {
                 csp_deduceVs(csp, diffCons, 0);
                 ret = 2;
             }
-        }
-
-        return ret|0;
-    }
-
-    function csp_deduceCoupledG(csp, cons1, cons2, g, common) {
-        csp = csp|0;
-        cons1 = cons1|0;
-        cons2 = cons2|0;
-        g = g|0;
-        common = common|0;
-
-        var ret = 0;
-
-        bs_copy(common, cons1);
-        if (__bs_retainAllG(common, cons2, g)|0) {
-            ret = __csp_deduceCoupledG(csp, cons1, cons2, g, common)|0;
-            if (!ret)
-                ret = __csp_deduceCoupledG(csp, cons2, cons1, g, common)|0;
         }
 
         return ret|0;
@@ -1178,7 +1051,6 @@ function AsmMod(stdlib, foreign, heap) {
             cons1 = csp_consAddr(csp, g1, i)|0;
             for (j = 0; (j|0) < (ncons2|0); j = (j + 1)|0) {
                 cons2 = csp_consAddr(csp, g2, j)|0;
-                //log(0, g1|0, g2|0, i|0, j|0);
                 deduced = csp_deduceCoupled(csp, cons1, cons2,
                                             tmpBs)|0;
                 if ((deduced|0) == 2) {
