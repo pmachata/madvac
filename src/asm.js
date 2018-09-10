@@ -1018,7 +1018,6 @@ function AsmMod(stdlib, foreign, heap) {
                 ret = __csp_deduceCoupled(csp, cons2, cons1, common)|0;
         }
 
-        x = (x + 1)|0;
         return ret|0;
     }
 
