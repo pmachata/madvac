@@ -19,7 +19,7 @@ Vue.component('app-field', {
             var flagged = this.field().flagged;
             this.game.flagField(this.x, this.y);
             if (flagged !== this.field().flagged) {
-                window.navigator.vibrate(100);
+                window.navigator.vibrate(50);
             }
         },
 
