@@ -4,6 +4,7 @@ class Field {
         this.covered = true;
         this.flagged = false;
         this.hasMine = false;
+        this.crossed = false;
         this.x = x;
         this.y = y;
         this.id = id;

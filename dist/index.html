@@ -55,6 +55,16 @@
         stroke-dasharray: 2,2;
     }
 
+    div.field svg.openMistake .light {
+        fill: #aba7ad;
+    }
+    div.field svg.openMistake .border {
+        fill: none;
+        stroke: red;
+        stroke-width: 4;
+        stroke-dasharray: 2,2;
+    }
+
     div.field svg.bomb circle {
         stroke: none;
         fill: black;
@@ -66,6 +76,12 @@
         font-family: Verdana, Helvetica, Arial, sans-serif;
         text-anchor: middle;
         dominant-baseline: middle;
+    }
+
+    div.field svg.cross path {
+        fill:red;
+        stroke:black;
+        stroke-width:1;
     }
 
     .unselectable {
@@ -88,6 +104,12 @@
             <path d="M 32,32 H 0 L 32,0 Z" class="dark" />
             <rect y="2" x="2" height="28" width="28" class="medium" />
         </svg>
+        <svg v-else-if="crossed() || (flagged() && !hasMine())"
+             class="openMistake"
+             viewBox="0 0 32 32">
+            <rect y="0" x="0" height="32" width="32" class="light" />
+            <rect y="0.25" x="0.25" height="31.5" width="31.5" class="border" />
+        </svg>
         <svg v-else
              class="open"
              viewBox="0 0 32 32">
@@ -95,18 +117,18 @@
             <rect y="0.25" x="0.25" height="31.5" width="31.5" class="border" />
         </svg>
 
-        <svg v-if="!covered() && hasMine()"
+        <svg v-if="!covered() && hasMine() && !flagged()"
              class="bomb"
              viewBox="0 0 32 32">
             <circle cx="16" cy="16" r="6" />
         </svg>
-        <svg v-else-if="!covered()"
+        <svg v-else-if="!covered() && !flagged()"
              class="neighCount"
              viewBox="0 0 32 32">
             <text x="16" y="16">{{countNeighMines() || ""}}</text>
         </svg>
 
-        <svg v-if="covered() && flagged()"
+        <svg v-if="flagged()"
              viewBox="0 0 32 32">
           <path style="stroke: black;
                        stroke-width: 2"

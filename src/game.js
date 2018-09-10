@@ -26,7 +26,8 @@ class Game {
         }
     }
 
-    kaboom() {
+    kaboom(field) {
+        field.crossed = true;
         for (var field of this.board.allFields()) {
             field.covered = false;
         }
@@ -49,7 +50,7 @@ class Game {
             field.uncoverNeighbors();
         }
         if (!field.covered && field.hasMine) {
-            this.kaboom();
+            this.kaboom(field);
         }
     }
 };

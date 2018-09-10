@@ -29,6 +29,9 @@ Vue.component('app-field', {
         covered: function() {
             return this.field().covered;
         },
+        crossed: function() {
+            return this.field().crossed;
+        },
         hasMine: function() {
             return this.field().hasMine;
         },
