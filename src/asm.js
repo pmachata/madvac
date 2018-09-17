@@ -1061,9 +1061,10 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
-    function csp_simplify(csp, knownsArray) {
+    function csp_simplify(csp, knownsArray, ignoreCoupled) {
         csp = csp|0;
         knownsArray = knownsArray|0;
+        ignoreCoupled = ignoreCoupled|0;
 
         var cons = 0;
         var cons2 = 0;
@@ -1124,25 +1125,27 @@ function AsmMod(stdlib, foreign, heap) {
                     }
                 }
 
-                for (g = 0; (g|0) < 5; g = (g + 1)|0) {
-                    deduced = csp_deduceCoupledBunch(csp, 0, g, nconsOrig,
-                                                     tmpBs)|0;
-                    if ((deduced|0) == 2) {
-                        progress = 1;
-                    }
-                }
-
-                for (g = 1; (g|0) < 5; g = (g + 1)|0) {
-                    deduced = csp_deduceCoupledBunch(csp, g, g, nconsOrig,
-                                                     tmpBs)|0;
-                    if ((deduced|0) == 2) {
-                        progress = 1;
+                if (!ignoreCoupled) {
+                    for (g = 0; (g|0) < 5; g = (g + 1)|0) {
+                        deduced = csp_deduceCoupledBunch(csp, 0, g, nconsOrig,
+                                                         tmpBs)|0;
+                        if ((deduced|0) == 2) {
+                            progress = 1;
+                        }
                     }
 
-                    deduced = csp_deduceCoupledBunch(csp, g, 0, nconsOrig,
-                                                     tmpBs)|0;
-                    if ((deduced|0) == 2) {
-                        progress = 1;
+                    for (g = 1; (g|0) < 5; g = (g + 1)|0) {
+                        deduced = csp_deduceCoupledBunch(csp, g, g, nconsOrig,
+                                                         tmpBs)|0;
+                        if ((deduced|0) == 2) {
+                            progress = 1;
+                        }
+
+                        deduced = csp_deduceCoupledBunch(csp, g, 0, nconsOrig,
+                                                         tmpBs)|0;
+                        if ((deduced|0) == 2) {
+                            progress = 1;
+                        }
                     }
                 }
 
