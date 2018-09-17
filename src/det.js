@@ -8,16 +8,24 @@ class DetGame {
         asm.csp_init(this.csp);
         this.uncoverQueue = [board.field(x0, y0)];
 
-        if (this.board.setFieldObserver(this) !== null) {
-            throw "DetGame expects a board without an observer";
+        this.origObserver = this.board.setFieldObserver(this);
+    }
+
+    resetObserver() {
+        if (this.board.setFieldObserver(this.origObserver) !== this) {
+            throw "Inconsistent observer";
         }
     }
 
     fieldBeforeUncover(field) {
-        return true;
+        if (this.origObserver !== null) {
+            return this.origObserver.fieldBeforeUncover(field);
+        } else {
+            return true;
+        }
     }
 
-    fieldUncovered(field) {
+    projectUncovered(field) {
         //console.log("uncovered " + field.toString());
         var sum = field.countNeighMines();
         var cons = heap.allocaCons();
@@ -28,6 +36,13 @@ class DetGame {
         asm.c_initSumOnly(cons, sum);
         //console.log(" => " + logger.cons_toString(cons));
         asm.csp_pushCons(this.csp, cons);
+    }
+
+    fieldUncovered(field) {
+        this.projectUncovered(field);
+        if (this.origObserver !== null) {
+            this.origObserver.fieldUncovered(field);
+        }
     }
 
     step() {
@@ -74,7 +89,7 @@ function detPlay(board, x0, y0) {
         var game = new DetGame(board, x0, y0);
         while (game.step()) {
         }
-        board.setFieldObserver(null);
+        game.resetObserver();
         ret = board.allFields().every(field => (!field.covered ||
                                                 (field.flagged && field.hasMine)));
     }
