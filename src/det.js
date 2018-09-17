@@ -113,10 +113,14 @@ function play(board, field0, ignoreCoupled) {
     return ret;
 }
 
+function hintPlay(board, ignoreCoupled) {
+    return play(board, undefined, ignoreCoupled);
+}
+
 // Play the game deterministically with the help of CSP.
 function detPlay(board, x0, y0, ignoreCoupled) {
     var field0 = board.field(x0, y0);
     return play(board, field0, ignoreCoupled);
 }
 
-export { detPlay };
+export { detPlay, hintPlay };

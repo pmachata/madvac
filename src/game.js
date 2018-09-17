@@ -1,6 +1,7 @@
 import { Field } from './field.js';
 import { Board } from './board.js';
 import { genGame } from './gen.js';
+import { hintPlay } from './det.js';
 
 class Game {
     constructor() {
@@ -17,12 +18,16 @@ class Game {
     openField(x, y) {
         if (!this.over) {
             this.field(x, y).open();
+            if (!this.over) {
+                hintPlay(this.board, true);
+            }
         }
     }
 
     flagField(x, y) {
         if (!this.over) {
             this.field(x, y).flag();
+            hintPlay(this.board, true);
         }
     }
 
@@ -36,7 +41,7 @@ class Game {
 
     fieldBeforeUncover(field) {
         if (!this.started) {
-            genGame(this.board, 30, field.x, field.y);
+            genGame(this.board, 30, field.x, field.y, undefined, false);
             this.started = true;
         }
         if (field.flagged) {
@@ -46,9 +51,6 @@ class Game {
     }
 
     fieldUncovered(field) {
-        if (field.countNeighMines() == 0) {
-            field.uncoverNeighbors();
-        }
         if (!field.covered && field.hasMine) {
             this.kaboom(field);
         }
