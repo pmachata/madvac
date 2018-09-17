@@ -2,7 +2,7 @@ import { Board } from './board.js';
 import { asm, heap, logger } from './asmctx.js';
 
 class DetGame {
-    constructor(board, field) {
+    constructor(board, field, ignoreCoupled) {
         this.board = board;
         this.csp = heap.allocaCsp();
         asm.csp_init(this.csp);
@@ -22,6 +22,7 @@ class DetGame {
             }
         }
 
+        this.ignoreCoupled = ignoreCoupled;
         this.origObserver = this.board.setFieldObserver(this);
     }
 
@@ -62,7 +63,7 @@ class DetGame {
     step() {
         heap.enter();
         var newKnownsPtr = heap.allocaNewKnowns();
-        var ct = asm.csp_simplify(this.csp, newKnownsPtr);
+        var ct = asm.csp_simplify(this.csp, newKnownsPtr, this.ignoreCoupled);
         var newKnowns = heap.array(newKnownsPtr, ct);
         for (let i in newKnowns) {
             let id = newKnowns[i];
@@ -95,12 +96,12 @@ class DetGame {
     }
 };
 
-function play(board, field0) {
+function play(board, field0, ignoreCoupled) {
     var ret;
 
     heap.enter();
     {
-        var game = new DetGame(board, field0);
+        var game = new DetGame(board, field0, ignoreCoupled);
         while (game.step()) {
         }
         game.resetObserver();
@@ -113,9 +114,9 @@ function play(board, field0) {
 }
 
 // Play the game deterministically with the help of CSP.
-function detPlay(board, x0, y0) {
+function detPlay(board, x0, y0, ignoreCoupled) {
     var field0 = board.field(x0, y0);
-    return play(board, field0);
+    return play(board, field0, ignoreCoupled);
 }
 
 export { detPlay };
