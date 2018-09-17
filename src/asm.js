@@ -1221,6 +1221,17 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
+    function csp_setKnown(csp, v, w) {
+        csp = csp|0;
+        v = v|0;
+        w = w|0;
+
+        bs_add(csp, v);
+        if (w) {
+            bs_add(csp_knownValAddr(csp)|0, v);
+        }
+    }
+
     return {
         bs_sizeOf: bs_sizeOf,
         bs_init: bs_init,
@@ -1260,6 +1271,7 @@ function AsmMod(stdlib, foreign, heap) {
         csp_knownsSize: csp_knownsSize,
         csp_isKnown: csp_isKnown,
         csp_known: csp_known,
+        csp_setKnown: csp_setKnown,
     };
 };
 
