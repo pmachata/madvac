@@ -1195,8 +1195,9 @@ function AsmMod(stdlib, foreign, heap) {
     function csp_isKnown(csp, v) {
         csp = csp|0;
         v = v|0;
-        var ret = 0;
+
         var isKnown = 0;
+        var ret = 0;
 
         isKnown = csp_isKnownAddr(csp)|0;
         ret = bs_has(isKnown, v)|0;
@@ -1207,8 +1208,9 @@ function AsmMod(stdlib, foreign, heap) {
     function csp_known(csp, v) {
         csp = csp|0;
         v = v|0;
-        var ret = 0;
+
         var knownVal = 0;
+        var ret = 0;
 
         if (!(csp_isKnown(csp, v)|0)) {
             return -1;
