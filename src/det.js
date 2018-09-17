@@ -11,6 +11,17 @@ class DetGame {
         if (field) {
             this.uncoverQueue.push(field);
         }
+
+        for (let field of board.allFields()) {
+            if (!field.covered) {
+                this.projectUncovered(field);
+                asm.csp_setKnown(this.csp, field.id, 0);
+            }
+            if (field.flagged) {
+                asm.csp_setKnown(this.csp, field.id, 1);
+            }
+        }
+
         this.origObserver = this.board.setFieldObserver(this);
     }
 
@@ -61,10 +72,11 @@ class DetGame {
                 throw "CSP resolved a variable with no corresponding field";
             }
 
-            if (value === 0) {
+            if (!value) {
                 //console.log("push to uncoverQueue: " + field.toString());
                 this.uncoverQueue.push(field);
-            } else {
+            }
+            if (field.flagged != !!value) {
                 field.flag();
             }
         }
