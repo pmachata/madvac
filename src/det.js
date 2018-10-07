@@ -1,8 +1,20 @@
 import { Board } from './board.js';
 import { asm, heap, logger } from './asmctx.js';
 
+class SolverStrength {
+    constructor(strength) {
+        this.strength = strength;
+    }
+};
+
+var strengthNone = new SolverStrength(-4);
+var strengthPrimaryZeroes = new SolverStrength(-3);
+var strengthZeroes = new SolverStrength(-2);
+var strengthSimple = new SolverStrength(-1);
+var strengthCoupled = new SolverStrength(0);
+
 class DetGame {
-    constructor(board, field, ignoreCoupled) {
+    constructor(board, field, strength) {
         this.board = board;
         this.csp = heap.allocaCsp();
         asm.csp_init(this.csp);
@@ -22,7 +34,7 @@ class DetGame {
             }
         }
 
-        this.ignoreCoupled = ignoreCoupled;
+        this.strength = strength;
         this.origObserver = this.board.setFieldObserver(this);
     }
 
@@ -63,7 +75,8 @@ class DetGame {
     step() {
         heap.enter();
         var newKnownsPtr = heap.allocaNewKnowns();
-        var ct = asm.csp_simplify(this.csp, newKnownsPtr, this.ignoreCoupled);
+        var ct = asm.csp_simplify(this.csp, newKnownsPtr,
+                                  this.strength.strength);
         var newKnowns = heap.array(newKnownsPtr, ct);
         for (let i in newKnowns) {
             let id = newKnowns[i];
@@ -96,12 +109,12 @@ class DetGame {
     }
 };
 
-function play(board, field0, ignoreCoupled) {
+function play(board, field0, strength) {
     var ret;
 
     heap.enter();
     {
-        var game = new DetGame(board, field0, ignoreCoupled);
+        var game = new DetGame(board, field0, strength);
         while (game.step()) {
         }
         game.resetObserver();
@@ -113,14 +126,16 @@ function play(board, field0, ignoreCoupled) {
     return ret;
 }
 
-function hintPlay(board, ignoreCoupled) {
-    return play(board, undefined, ignoreCoupled);
+function autoPlay(board, strength) {
+    return play(board, undefined, strength);
 }
 
 // Play the game deterministically with the help of CSP.
-function detPlay(board, x0, y0, ignoreCoupled) {
+function detPlay(board, x0, y0, strength) {
     var field0 = board.field(x0, y0);
-    return play(board, field0, ignoreCoupled);
+    return play(board, field0, strength);
 }
 
-export { detPlay, hintPlay };
+export { detPlay, autoPlay,
+         strengthNone, strengthPrimaryZeroes,
+         strengthZeroes, strengthSimple, strengthCoupled };

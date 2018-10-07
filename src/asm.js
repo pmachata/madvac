@@ -35,6 +35,9 @@ function AsmMod(stdlib, foreign, heap) {
     // N.B. actual buffer size is 4x cap.
     const csp_cap = 256;
 
+    // Cons flags.
+    const CF_DEDUCED = 0x1;
+
     const LOG_ERR = 0;
     const LOG_INVALID_KEY = 1;
     const LOG_ORDER_CAP_OVFL = 3;
@@ -448,7 +451,8 @@ function AsmMod(stdlib, foreign, heap) {
      * struct {
      *   BitSet128 vs;    -- set of variables on LHS
      *   u8 sum;
-     *   u8 _padding[3];
+     *   u8 flags;        -- CF_*
+     *   u8 _padding[2];
      * };
      *
      * Since Cons is just a bit set and sum, manipulation of "vs" is done
@@ -469,19 +473,31 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
+    function c_flagsAddr(cons) {
+        cons = cons|0;
+        var ret = 0;
+        ret = ((c_sumAddr(cons)|0) + 1)|0;
+        return ret|0;
+    }
+
     // Partially initialize a Cons structure--initialize just sum, assuming
     // "cons" refers to a BitSet object that has already been initialized.
     function c_initSumOnly(cons, sum) {
         cons = cons|0;
         sum = sum|0;
-        var sumAddr = 0;
 
-        sumAddr = c_sumAddr(cons)|0;
-        MEM8[sumAddr] = sum;
+        var addr = 0;
+
+        addr = c_sumAddr(cons)|0;
+        MEM8[addr] = sum;
+
+        addr = c_flagsAddr(cons)|0;
+        MEM8[addr] = 0;
     }
 
     function c_sum(cons) {
         cons = cons|0;
+
         var sumAddr = 0;
         var ret = 0;
 
@@ -494,10 +510,33 @@ function AsmMod(stdlib, foreign, heap) {
     function c_sumSet(cons, sum) {
         cons = cons|0;
         sum = sum|0;
+
         var sumAddr = 0;
 
         sumAddr = c_sumAddr(cons)|0;
         MEM8[sumAddr|0] = sum;
+    }
+
+    function c_flags(cons) {
+        cons = cons|0;
+
+        var addr = 0;
+        var ret = 0;
+
+        addr = c_flagsAddr(cons)|0;
+        ret = MEM8[addr|0]|0;
+
+        return ret|0;
+    }
+
+    function c_flagsSet(cons, flags) {
+        cons = cons|0;
+        flags = flags|0;
+
+        var addr = 0;
+
+        addr = c_flagsAddr(cons)|0;
+        MEM8[addr|0] = flags;
     }
 
     function c_copy(cons, other) {
@@ -506,6 +545,7 @@ function AsmMod(stdlib, foreign, heap) {
 
         bs_copy(cons, other);
         MEM8[c_sumAddr(cons)|0] = MEM8[c_sumAddr(other)|0];
+        MEM8[c_flagsAddr(cons)|0] = MEM8[c_flagsAddr(other)|0];
     }
 
     function c_fingerprint(cons) {
@@ -922,6 +962,7 @@ function AsmMod(stdlib, foreign, heap) {
             // Finish newCons initialization & push it.
             sum = ((c_sum(cons)|0) - (bs_size(onesBs)|0))|0;
             c_initSumOnly(newCons, sum);
+            c_flagsSet(newCons, CF_DEDUCED);
             ret = csp_pushCons(csp, newCons)|0;
         }
 
@@ -939,9 +980,11 @@ function AsmMod(stdlib, foreign, heap) {
         }
     }
 
-    function csp_deduceSimple(csp, cons) {
+    function csp_deduceSimple(csp, cons, strength) {
         csp = csp|0;
         cons = cons|0;
+        strength = strength|0;
+
         var sum = 0;
         var nvs = 0;
 
@@ -953,8 +996,14 @@ function AsmMod(stdlib, foreign, heap) {
         //  in case 2) A0 = A1 = ... = An = 0
         sum = c_sum(cons)|0;
         if (!sum) {
-            csp_deduceVs(csp, cons, 0);
-        } else {
+            if ((strength|0) >= -2) {
+                csp_deduceVs(csp, cons, 0);
+            } else if ((strength|0) >= -3) {
+                if (!((c_flags(cons)|0) & CF_DEDUCED)) {
+                    csp_deduceVs(csp, cons, 0);
+                }
+            }
+        } else if ((strength|0) >= -1) {
             nvs = bs_size(cons)|0;
             if ((nvs|0) == (sum|0)) {
                 csp_deduceVs(csp, cons, 1);
@@ -1061,10 +1110,16 @@ function AsmMod(stdlib, foreign, heap) {
         return ret|0;
     }
 
-    function csp_simplify(csp, knownsArray, ignoreCoupled) {
+    // strength values:
+    //  -4 - no deduction
+    //  -3 - deduce simple constraints with 0 RHS unless CF_DEDUCED
+    //  -2 - deduce simple constraints with 0 RHS
+    //  -1 - deduce all simple constraints
+    //  +0 - deduce coupled constraints
+    function csp_simplify(csp, knownsArray, strength) {
         csp = csp|0;
         knownsArray = knownsArray|0;
-        ignoreCoupled = ignoreCoupled|0;
+        strength = strength|0;
 
         var cons = 0;
         var cons2 = 0;
@@ -1121,11 +1176,11 @@ function AsmMod(stdlib, foreign, heap) {
                     ncons = MEM16[srcAddr >> 1]|0;
                     for (i = nconsOld|0; (i|0) < (ncons|0); i = (i + 1)|0) {
                         cons = csp_consAddr(csp, g, i)|0;
-                        csp_deduceSimple(csp, cons);
+                        csp_deduceSimple(csp, cons, strength);
                     }
                 }
 
-                if (!ignoreCoupled) {
+                if ((strength|0) >= 0) {
                     for (g = 0; (g|0) < 5; g = (g + 1)|0) {
                         deduced = csp_deduceCoupledBunch(csp, 0, g, nconsOrig,
                                                          tmpBs)|0;

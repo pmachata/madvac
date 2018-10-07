@@ -1,7 +1,8 @@
 import { Field } from './field.js';
 import { Board } from './board.js';
 import { genGame } from './gen.js';
-import { hintPlay } from './det.js';
+import { autoPlay, strengthPrimaryZeroes,
+         strengthZeroes, strengthCoupled } from './det.js';
 
 class Game {
     constructor() {
@@ -19,7 +20,7 @@ class Game {
         if (!this.over) {
             this.field(x, y).open();
             if (!this.over) {
-                hintPlay(this.board, true);
+                autoPlay(this.board, strengthZeroes);
             }
         }
     }
@@ -27,7 +28,7 @@ class Game {
     flagField(x, y) {
         if (!this.over) {
             this.field(x, y).flag();
-            hintPlay(this.board, true);
+            autoPlay(this.board, strengthZeroes);
         }
     }
 
@@ -41,7 +42,8 @@ class Game {
 
     fieldBeforeUncover(field) {
         if (!this.started) {
-            genGame(this.board, 30, field.x, field.y, undefined, false);
+            genGame(this.board, 30, field.x, field.y, undefined,
+                    strengthCoupled);
             this.started = true;
         }
         if (field.flagged) {

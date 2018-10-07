@@ -1,4 +1,5 @@
 import { assert } from 'chai';
+import { strengthCoupled } from './det.js';
 import { genGame } from './gen.js';
 import { Board } from './board.js';
 import { assertPlayable, assertNotPlayable } from './tests.js';
@@ -19,13 +20,13 @@ function deterministicRandCoord() {
 for (let i = 0; i < 10; ++i) {
     let board = new Board(10, 10);
     let c0 = [5, 5];
-    genGame(board, 30, ...c0);
+    genGame(board, 30, ...c0, undefined, strengthCoupled);
     assertPlayable("", board, ...c0);
 }
 
 for (let i = 0; i < 10; ++i) {
     let board = new Board(10, 10);
     let c0 = [5, 5];
-    genGame(board, 38, ...c0, deterministicRandCoord());
+    genGame(board, 38, ...c0, deterministicRandCoord(), strengthCoupled);
     assertPlayable("", board, ...c0);
 }

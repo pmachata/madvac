@@ -18,7 +18,7 @@ function randEmptyField(board, randCoord) {
     }
 }
 
-function genGame(board, want_nmines, x0, y0, randCoord, ignoreCoupled) {
+function genGame(board, want_nmines, x0, y0, randCoord, strength) {
     var origObserver = board.setFieldObserver(null);
 
     if (randCoord === undefined) {
@@ -33,7 +33,7 @@ function genGame(board, want_nmines, x0, y0, randCoord, ignoreCoupled) {
         field.hasMine = true;
         mines.push(field);
 
-        var playable = detPlay(board, x0, y0, ignoreCoupled);
+        var playable = detPlay(board, x0, y0, strength);
         board.allFields().forEach(function(field) {
             field.covered = true;
             field.flagged = false;
